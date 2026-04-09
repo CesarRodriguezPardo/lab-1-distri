@@ -10,6 +10,8 @@ private:
 public:
     NBodySimulator(NBodySystem* sys, double dt);
     void integrateEuler();
+    void calculateEnergy();
+    void processBodies();
 };
 
 #endif

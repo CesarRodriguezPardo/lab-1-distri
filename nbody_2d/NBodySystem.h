@@ -15,8 +15,9 @@ class NBodySystem {
         NBodySystem(double G, double epsilon);
         void addParticle(const Particle& p);
         void zeroAccelerations();
-
         void computeAccelerations();
+        const std::vector<Particle>& getBodies() const;
+        int getCount() const;
 };
 
 # endif
