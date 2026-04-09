@@ -13,6 +13,15 @@ class Particle {
         void addAcceleration(double d_ax, double d_ay);
         void kick(double dt); // v = v + a * dt
         void drift(double dt); // r = v * dt
+
+        // getters
+        double getMass() const { return mass; }
+        double getX() const { return x; }
+        double getY() const { return y; }
+        double getVX() const { return vx; }
+        double getVY() const { return vy; }
+        double getAX() const { return ax; }
+        double getAY() const { return ay; }
 };
 
 #endif
