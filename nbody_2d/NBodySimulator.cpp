@@ -2,7 +2,7 @@
 
 
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt){
-    : system (sys), time_step(dt) {}
+    : system(sys), time_step(dt) {}
     return;
 }
 
