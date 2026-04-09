@@ -1,0 +1,108 @@
+# =============================================================================
+# CI — 2D N-Body Gravitational Simulator
+# Laboratorio 1: Programación paralela con OpenMP
+# Universidad de Santiago de Chile
+#
+# Runs on every push and pull-request to main/master.
+# Pipeline stages:
+#   1. build   — compile the main binary (no warnings allowed)
+#   2. test    — compile and run unit + integration tests
+#   3. verify  — run Week-1 physics verification (N=2, N=3)
+# =============================================================================
+
+name: CI
+
+on:
+  push:
+    branches:
+      - main
+      - master
+  pull_request:
+    branches:
+      - main
+      - master
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # build-and-test
+  # ---------------------------------------------------------------------------
+  build-and-test:
+    name: Build & Test (Ubuntu, g++)
+    runs-on: ubuntu-latest
+
+    steps:
+      # -----------------------------------------------------------------------
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      # -----------------------------------------------------------------------
+      - name: Install dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            g++ \
+            make \
+            libgomp1 \
+            libgtest-dev \
+            cmake
+          cmake -S /usr/src/googletest -B /tmp/gtest_build
+          cmake --build /tmp/gtest_build
+          sudo cmake --install /tmp/gtest_build
+          rm -rf /tmp/gtest_build
+
+      # -----------------------------------------------------------------------
+      - name: Show compiler info
+        working-directory: nbody_2d
+        run: |
+          g++ --version
+          echo "OMP_NUM_THREADS=$(nproc)"
+
+      # -----------------------------------------------------------------------
+      - name: Build main binary
+        working-directory: nbody_2d
+        run: make all
+
+      # -----------------------------------------------------------------------
+      - name: Run unit tests
+        working-directory: nbody_2d
+        run: make test
+
+      # -----------------------------------------------------------------------
+      - name: Run Week-1 physics verification (N=2, N=3)
+        working-directory: nbody_2d
+        run: ./nbody_2d
+
+      # -----------------------------------------------------------------------
+      - name: Smoke-test CLI flags
+        working-directory: nbody_2d
+        run: |
+          ./nbody_2d --help
+          ./nbody_2d --benchmark
+          ./nbody_2d --analysis
+          ./nbody_2d --simulate
+
+      # -----------------------------------------------------------------------
+      - name: Clean build artefacts
+        working-directory: nbody_2d
+        run: make clean
+
+  # ---------------------------------------------------------------------------
+  # docker-build  — ensures the Dockerfile builds and tests pass inside it
+  # ---------------------------------------------------------------------------
+  docker-build:
+    name: Docker build & test
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Build Docker image
+        working-directory: nbody_2d
+        run: docker build -t nbody2d .
+
+      - name: Run tests inside container
+        run: docker run --rm nbody2d make test
+
+      - name: Run physics verification inside container
+        run: docker run --rm nbody2d ./nbody_2d
