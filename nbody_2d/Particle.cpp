@@ -3,6 +3,18 @@
 Particle::Particle(double m, double x0, double y0)
     : mass(m), x(x0), y(y0), vx(0.0), vy(0.0), ax(0.0), ay(0.0) {}
 
+
+void Particle::setPosition(double x_, double y_){
+    x = x_;
+    y = y_;
+}
+
+
+void Particle::setVelocity(double vx_, double vy_){
+    vx = vx_;
+    vy = vy_;
+}
+
 void Particle::setAcceleration(double ax_, double ay_){
     ax = ax_;
     ay = ay_;

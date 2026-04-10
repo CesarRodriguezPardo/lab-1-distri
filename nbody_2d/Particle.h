@@ -9,7 +9,7 @@ class Particle {
         double ax, ay; // Aceleracion
     public:
         Particle(double m, double x0, double y0);
-        void setAcceleration(double ax_, double ay_);
+
         void addAcceleration(double d_ax, double d_ay);
         void kick(double dt); // v = v + a * dt
         void drift(double dt); // r = v * dt
@@ -22,6 +22,11 @@ class Particle {
         double getVY() const { return vy; }
         double getAX() const { return ax; }
         double getAY() const { return ay; }
+
+        //setters
+        void setPosition(double x_, double y_);
+        void setVelocity(double vx_, double vy_);
+        void setAcceleration(double ax_, double ay_);
 };
 
 #endif
