@@ -2,6 +2,7 @@
 #define NBODYSYSTEM_H
 
 #include <vector>
+#include <cstdlib>
 #include "Particle.h"
 
 using std::vector;
@@ -18,6 +19,7 @@ class NBodySystem {
         void computeAccelerations();
         const std::vector<Particle>& getBodies() const;
         int getCount() const;
+        void generateParticles (int amount, int seed = 1);
 
         //getters
         std::vector<Particle>& getParticles() { return bodies;}

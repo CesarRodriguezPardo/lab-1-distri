@@ -1,30 +1,26 @@
 # include "NBodySimulator.h"
-
-// Source - https://stackoverflow.com/a/18773495
-// Posted by IInspectable, modified by community. See post 'Timeline' for change history
-// Retrieved 2026-04-09, License - CC BY-SA 3.0
-const double EulerConstant = std::exp(1.0);
  
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt)
     : system(sys), 
-      time_step(dt < EulerConstant ? EulerConstant : dt) {}
+      time_step(dt)
+      {/*energyFile.open("evolucion_energia.dat");*/}
+      
 
 void NBodySimulator::integrateEuler(){
     auto& particles = system->getParticles();
     int n = particles.size();
 
     for (int i = 0; i < n; ++i){
-    // 1. Obtener datos actuales
         double vx = particles[i].getVX();
         double vy = particles[i].getVY();
         double ax = particles[i].getAX();
         double ay = particles[i].getAY();
 
-        // 2. Calcular nueva velocidad (v = v + a * dt)
+        // usar kick
         double next_vx = vx + ax * time_step;
         double next_vy = vy + ay * time_step;
 
-        // 3. Calcular nueva posición (p = p + v_nueva * dt)
+        // usar drift
         double next_x = particles[i].getX() + next_vx * time_step;
         double next_y = particles[i].getY() + next_vy * time_step;
 
@@ -77,7 +73,11 @@ void NBodySimulator::processBodies() {
     calculateEnergy(); //opcional pero sirve
 }
 
-void NBodySimulator::simulate(int N, double simG, double simEps, double delta_time) {
+void NBodySimulator::simulate(int steps) {
+    for (int i = 0; i < steps; i++){
+        this->processBodies();
+        std::cout << "ciclo " << i+1  << " listo" << std::endl; 
+    }
     return;
 
 }

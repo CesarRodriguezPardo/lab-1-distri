@@ -8,13 +8,16 @@ NBodySystem::NBodySystem(double G, double epsilon)
 
 void NBodySystem::addParticle(const Particle& p){
     bodies.push_back(p);
+    //bodies.emplace_back(p); esto se suponque que podría ahorrarle tiempo al procesador (faltan test)
 }
 
+/*
 void NBodySystem::zeroAccelerations (){
     for(auto& body : bodies) {
         body.setAcceleration(0.0 , 0.0);
     }
 }
+*/
 
 void NBodySystem::computeAccelerations(){
     int nBodies = bodies.size();
@@ -52,5 +55,25 @@ const std::vector <Particle>& NBodySystem::getBodies() const {
 
 int NBodySystem::getCount() const {
     return bodies.size();
+}
+
+void NBodySystem::generateParticles (int amount, int seed){
+    srand(seed);
+    for (int i = 0; i < amount; i++){
+        double randomX = (double)rand() / RAND_MAX * 100.0;
+        double randomY = (double)rand() / RAND_MAX * 100.0;
+        double randomMass = 1.0 + (double)rand() / RAND_MAX * 10.0;
+
+        //se podrían guardar velocidades aleatorias en caso de querer hacer otras estructuras;
+        //double vx = -1.0 + (double)rand() / RAND_MAX * 2.0; 
+        //double vy = -1.0 + (double)rand() / RAND_MAX * 2.0;
+
+
+        Particle p(randomMass, randomX, randomY);
+        
+        // 4. Agregar al vector 'bodies' (usa push_back)
+        this->addParticle(p);
+    }
+    
 }
 

@@ -4,17 +4,19 @@
 #include "NBodySystem.h"
 #include <fstream>
 #include <iomanip>
+#include <cmath>
 
 class NBodySimulator {
 private:
     NBodySystem* system;
     double time_step;
+    //std::ofstream energyFile;
 public:
     NBodySimulator(NBodySystem* sys, double dt);
     void integrateEuler();
     void calculateEnergy();
     void processBodies();
-    void simulate(int N, double simG, double simEps, double delta_time);
+    void simulate(int steps);
 };
 
 #endif
