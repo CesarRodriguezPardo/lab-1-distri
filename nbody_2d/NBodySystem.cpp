@@ -59,7 +59,7 @@ int NBodySystem::getCount() const {
 
 void NBodySystem::generateParticles (int amount, int seed){
     srand(seed);
-    for (int i = 0; i < amount; i++){
+    for (int i = 0; i < amount; ++i){
         double randomX = (double)rand() / RAND_MAX * 100.0;
         double randomY = (double)rand() / RAND_MAX * 100.0;
         double randomMass = 1.0 + (double)rand() / RAND_MAX * 10.0;

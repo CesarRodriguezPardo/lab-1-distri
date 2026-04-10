@@ -3,36 +3,22 @@
 
 int main () {
 
+    //si ya existe makefile borrar este comentario y el de abajo.
+    //para compilar g++ Particle.h Particle.cpp NBodySystem.h NBodySystem.cpp NBodySimulator.h NBodySimulator.cpp main.cpp -o test.exe
+
+    int seed = 31;
+    int nParticles = 1000;
+    double dt = 0.01; //que tan grande va a ser el movimiento de las particulas en cada paso
     double G = 1.0;
-    double epsilon = 0.1;
-    double dt = 0.01;
-    int seed = 31; //valor de ejemplo
-    int amountOfP = 3;
+    double epsilon = 0.05;
     int steps = 100;
 
     NBodySystem system(G, epsilon);
 
-    system.generateParticles(amountOfP, seed);
+    system.generateParticles(nParticles, seed);
 
     NBodySimulator simulator(&system, dt);
 
     simulator.simulate(steps);
 
-
-
-    /*    Particle p1(1.0, 0.0, 0.0);
-    Particle p2(1.0, 1.0, 0.0);
-    system.addParticle(p1);
-    system.addParticle(p2);
-    */
-
-    /*
-    NBodySimulator simulator(&system, dt);
-    for (int step = 0; step < 20; step++) {
-        simulator.integrateEuler();
-        if (step % 2 == 0) {
-            std::cout << "Paso " << step << " completado." << std::endl;
-        }
-    }
-    */
 }

@@ -5,12 +5,12 @@
 #include <fstream>
 #include <iomanip>
 #include <cmath>
+#include <chrono>
 
 class NBodySimulator {
 private:
     NBodySystem* system;
     double time_step;
-    //std::ofstream energyFile;
 public:
     NBodySimulator(NBodySystem* sys, double dt);
     void integrateEuler();

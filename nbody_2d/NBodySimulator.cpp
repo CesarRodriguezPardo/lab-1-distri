@@ -3,6 +3,7 @@
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt)
     : system(sys), 
       time_step(dt)
+      
       {/*energyFile.open("evolucion_energia.dat");*/}
       
 
@@ -16,17 +17,9 @@ void NBodySimulator::integrateEuler(){
         double ax = particles[i].getAX();
         double ay = particles[i].getAY();
 
-        // usar kick
-        double next_vx = vx + ax * time_step;
-        double next_vy = vy + ay * time_step;
 
-        // usar drift
-        double next_x = particles[i].getX() + next_vx * time_step;
-        double next_y = particles[i].getY() + next_vy * time_step;
-
-        // 4. Guardar cambios en la partícula
-        particles[i].setVelocity(next_vx, next_vy);
-        particles[i].setPosition(next_x, next_y);
+        particles[i].kick(time_step);
+        particles[i].drift(time_step);
     }
 }
 
@@ -56,11 +49,33 @@ void NBodySimulator::calculateEnergy(){
     }
     double totalEnergy = kineticEnergy + potentialEnergy;
 
-    std::ofstream outFile("evolucion_energia.dat", std::ios::app);
-    if (outFile.is_open()){
-        outFile << std::fixed << std::setprecision(8) << totalEnergy << std::endl;
+    //creacion del archivo .dat
+    static bool exists = true;
+    std::ofstream outFile;
 
-        outFile.close();
+    if (exists) {
+        // La primera vez abrimos con ios::out (por defecto borra lo anterior si existe)
+        outFile.open("energy.dat", std::ios::out);
+        exists = false; 
+    } else {
+        // Las siguientes veces del bucle abrimos con ios::app (añadir al final)
+        outFile.open("energy.dat", std::ios::app);
+    }
+
+
+    
+    if (outFile.is_open()) {
+        //Revisamos si el archivo está vacío para poner el encabezado
+        outFile.seekp(0, std::ios::end); 
+        if (outFile.tellp() == 0) {
+            outFile << "K_Cinetica \t U_Potencial \t E_Total\n";
+        }
+        outFile << std::fixed << std::setprecision(8) 
+                << kineticEnergy << " \t " 
+                << potentialEnergy << " \t " 
+                << totalEnergy << "\n";
+        
+        outFile.close(); 
     }
 }
 
@@ -74,10 +89,20 @@ void NBodySimulator::processBodies() {
 }
 
 void NBodySimulator::simulate(int steps) {
-    for (int i = 0; i < steps; i++){
-        this->processBodies();
-        std::cout << "ciclo " << i+1  << " listo" << std::endl; 
-    }
-    return;
 
+    auto start = std::chrono::high_resolution_clock::now();
+
+    for (int i = 0; i < steps; ++i){
+        this->processBodies();
+        std::cout << "ciclo " << i + 1  << " listo" << std::endl; 
+    }
+
+    auto end = std::chrono::high_resolution_clock::now();
+
+    std::chrono::duration<double> duration = end - start;
+
+    std::cout << "Simulation done in " 
+              << std::fixed << std::setprecision(8)
+              << duration.count() << " seconds." << std::endl;
+    return;
 }
