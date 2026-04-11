@@ -19,7 +19,10 @@ class NBodySystem {
         void computeAccelerations();
         const std::vector<Particle>& getBodies() const;
         int getCount() const;
-        void generateParticles (int amount, int seed = 1);
+        void randomSystem(int amount, int seed = 1);
+        void bynarySystem(int seed);
+        void diskSystem(int amount, int seed);
+        void saveSnapshot(std::ostream& outFile, int step);
 
         //getters
         std::vector<Particle>& getParticles() { return bodies;}

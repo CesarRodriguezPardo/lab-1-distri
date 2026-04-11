@@ -8,14 +8,16 @@ int main () {
 
     int seed = 31;
     int nParticles = 1000;
-    double dt = 0.01; //que tan grande va a ser el movimiento de las particulas en cada paso
+    double dt = 0.001; //que tan grande va a ser el movimiento de las particulas en cada paso
     double G = 1.0;
     double epsilon = 0.05;
     int steps = 100;
 
     NBodySystem system(G, epsilon);
 
-    system.generateParticles(nParticles, seed);
+    //system.randomSystem(nParticles, seed);
+    system.bynarySystem(seed);
+    //system.diskSystem(nParticles, seed);
 
     NBodySimulator simulator(&system, dt);
 
