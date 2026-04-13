@@ -21,7 +21,7 @@ RUN make all
 # Stage Runtime: se encarga de ejecutar el proyecto
 FROM debian:bookworm-slim AS runtime
 
-# se copia el binario compilado de la etapa anterior.
+# se copia el binario compilado de la etapa anterior para ejecutarlo
 WORKDIR /app
 COPY --from=builder /app/nbody .
 
