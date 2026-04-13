@@ -1,10 +1,7 @@
 # include "NBodySimulator.h"
  
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt)
-    : system(sys), 
-      time_step(dt)
-      
-      {/*energyFile.open("evolucion_energia.dat");*/}
+    : system(sys), time_step(dt){}
       
 
 void NBodySimulator::integrateEuler(){
@@ -12,18 +9,12 @@ void NBodySimulator::integrateEuler(){
     int n = particles.size();
 
     for (int i = 0; i < n; ++i){
-        double vx = particles[i].getVX();
-        double vy = particles[i].getVY();
-        double ax = particles[i].getAX();
-        double ay = particles[i].getAY();
-
-
         particles[i].kick(time_step);
         particles[i].drift(time_step);
     }
 }
 
-void NBodySimulator::calculateEnergy(){
+void NBodySimulator::calculateEnergy(std::ofstream &energyFile){
     auto& particles = system->getParticles();
     int n = particles.size();
     double kineticEnergy = 0.0;
@@ -49,52 +40,51 @@ void NBodySimulator::calculateEnergy(){
     }
     double totalEnergy = kineticEnergy + potentialEnergy;
 
-    //creacion del archivo .dat
-    static bool exists = true;
-    std::ofstream outFile;
-
-    if (exists) {
-        // La primera vez abrimos con ios::out (por defecto borra lo anterior si existe)
-        outFile.open("energy_timeseries.dat", std::ios::out);
-        exists = false; 
-    } else {
-        // Las siguientes veces del bucle abrimos con ios::app (añadir al final)
-        outFile.open("energy_timeseries.dat", std::ios::app);
-    }
-    
-    if (outFile.is_open()) {
-        //Revisamos si el archivo está vacío para poner el encabezado
-        outFile.seekp(0, std::ios::end); 
-        if (outFile.tellp() == 0) {
-            outFile << "K_Cinetica \t U_Potencial \t E_Total\n";
-        }
-        outFile << std::fixed << std::setprecision(8) 
-                << kineticEnergy << " \t " 
-                << potentialEnergy << " \t " 
-                << totalEnergy << "\n";
-        
-        outFile.close(); 
-    }
+    energyFile << std::fixed << std::setprecision(8) 
+            << kineticEnergy << " \t " 
+            << potentialEnergy << " \t " 
+            << totalEnergy << "\n";
 }
 
-void NBodySimulator::processBodies() {
+void NBodySimulator::processBodies(std::ofstream &energyFile) {
     system->computeAccelerations(); //obtengo las aceleraciones
 
     integrateEuler(); //muevo las particulas
 
-    calculateEnergy(); //opcional pero sirve
+    calculateEnergy(energyFile);
 }
 
 void NBodySimulator::simulate(int steps) {
+    //creacion del archivo de energias.dat
+    static bool exists = true;
+    std::ofstream energyFile;
+
+    if (exists) {
+        // La primera vez abrimos con ios::out (por defecto borra lo anterior si existe)
+        energyFile.open("energy_timeseries.dat", std::ios::out);
+        exists = false; 
+    } else {
+        // Las siguientes veces del bucle abrimos con ios::app (añadir al final)
+        energyFile.open("energy_timeseries.dat", std::ios::app);
+    }
+    energyFile.seekp(0, std::ios::end); 
+    if (energyFile.tellp() == 0) {
+        energyFile << "K_Cinetica \t U_Potencial \t E_Total\n";
+    }
+
+    //creacion del archivo de trayectorias
     std::ofstream file("trajectories.dat");
+    file << "id \t step \t X \t Y \t VX \t VY\n";
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    for (int i = 0; i < steps; ++i){
-        this->processBodies();
-        system->saveSnapshot(file, i); // Guardar el estado actual en el archivo
-        std::cout << "ciclo " << i + 1  << " listo" << std::endl; 
+    for (int step = 0; step < steps; ++step){
+        this->processBodies(energyFile);
+        system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
+        std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
     }
+
+    energyFile.close();
 
     auto end = std::chrono::high_resolution_clock::now();
 
