@@ -145,11 +145,9 @@ void NBodySystem::diskSystem(int amount, int seed) {
 
 // Recibe una referencia al archivo ya abierto
 void NBodySystem::saveSnapshot(std::ostream& outFile, int step) {
-    outFile << "id \t step \t X \t Y \t VX \t VY\n";
     for (size_t i = 0; i < bodies.size(); ++i) {
         const auto& p = bodies[i];
         outFile << i << " \t " << step << " \t " << p.getX() << " \t " << p.getY() << " \t "
                 << p.getVX() << " \t " << p.getVY() << "\n";
     }
-    outFile << "\n\n"; // Separador de frames
 }

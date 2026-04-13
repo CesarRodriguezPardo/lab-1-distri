@@ -14,8 +14,8 @@ private:
 public:
     NBodySimulator(NBodySystem* sys, double dt);
     void integrateEuler();
-    void calculateEnergy();
-    void processBodies();
+    void calculateEnergy(std::ofstream &energyFile);
+    void processBodies(std::ofstream &energyFile);
     void simulate(int steps);
 };
 
