@@ -21,11 +21,11 @@ RUN make all
 # Stage Runtime: se encarga de ejecutar el proyecto
 FROM debian:bookworm-slim AS runtime
 
-# se define el directorio app y se copia el binario resultante de ejecutar
-# make all
-WORKDIR /app
-COPY --from=builder /app/nbody .
+# Mover el binario a la carpeta del sistema para ejecutarlo desde cualquier lugar
+# y evitar sobreescribirlo si montamos un volumen en otra carpeta
+COPY --from=builder /app/nbody /usr/local/bin/nbody
 
-CMD ["./nbody"]
+# Establecemos /data como directorio de trabajo (donde ocurrirán la simulación)
+WORKDIR /data
 
-# en el main se debe poder ejecutar la simulación y se deben poder parametrizar las constantes
+CMD ["nbody"]

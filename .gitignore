@@ -1,0 +1,10 @@
+# Binarios generados
+nbody_2d/nbody
+nbody_2d/test_runner
+
+# Archivos de datos generados
+nbody_2d/*.dat
+*.dat
+
+# Archivos de macOS
+.DS_Store
