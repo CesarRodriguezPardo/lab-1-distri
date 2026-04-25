@@ -20,21 +20,23 @@ void NBodySimulator::calculateEnergy(std::ofstream &energyFile){
     double kineticEnergy = 0.0;
     double potentialEnergy = 0.0;
     double G = system->getG_const();
+    double eps = system->getEps();
 
     for (int i = 0; i < n; ++i){
         double m = particles[i].getMass();
         double vx = particles[i].getVX();
         double vy = particles[i].getVY();
+        double xi = particles[i].getX();
+        double yi = particles[i].getY();
 
         kineticEnergy += 0.5 * m * (vx * vx + vy * vy);
         for (int j = i + 1; j < n; ++j) {
-            double dx = particles[j].getX() - particles[i].getX();
-            double dy = particles[j].getY() - particles[i].getY();
+            double dx = particles[j].getX() - xi;
+            double dy = particles[j].getY() - yi;
             
             // Usamos el mismo suavizado 'eps' que en las aceleraciones
-            double eps = system->getEps();
-            double r = sqrt(dx * dx + dy * dy + eps * eps);
             
+            double r = sqrt(dx * dx + dy * dy + eps * eps);
             potentialEnergy -= (G * m * particles[j].getMass()) / r;
         }
     }

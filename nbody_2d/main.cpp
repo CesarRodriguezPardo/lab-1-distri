@@ -5,9 +5,6 @@ using namespace std;
 
 int main () {
 
-    //si ya existe makefile borrar este comentario y el de abajo.
-    //para compilar g++ Particle.h Particle.cpp NBodySystem.h NBodySystem.cpp NBodySimulator.h NBodySimulator.cpp main.cpp -o test.exe
-
     int seed;
     int nParticles;
     double dt;
