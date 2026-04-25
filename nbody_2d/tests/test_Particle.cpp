@@ -125,3 +125,46 @@ TEST_CASE("Particle: secuencia kick + drift produce movimiento correcto (Euler s
     REQUIRE(p.getVY() == Approx(9.8));
     REQUIRE(p.getY()  == Approx(9.8));
 }
+
+// ─────────────────────────────────────────────
+//  SECCIÓN: Validación de masa
+// ─────────────────────────────────────────────
+// El constructor de Particle recibe 'double m' sin restricciones.
+// Estos tests DOCUMENTAN el comportamiento actual:
+//   - Masas positivas: caso normal esperado.
+//   - Masa cero:       aceptada sin error; físicamente significa un cuerpo sin campo.
+//   - Masa negativa:   aceptada sin error; físicamente incorrecta (repulsión),
+//                      pero el código no valida esto actualmente.
+//
+// Si en el futuro se añade validación (throw o assert), estos tests deberán
+// actualizarse para reflejar el nuevo comportamiento esperado.
+
+TEST_CASE("Particle: masa positiva se almacena correctamente", "[Particle][mass]") {
+    // Caso normal: masa positiva arbitraria.
+    Particle p(42.5, 1.0, 2.0);
+    REQUIRE(p.getMass() == Approx(42.5));
+}
+
+TEST_CASE("Particle: masa cero se almacena sin error (comportamiento documentado)",
+          "[Particle][mass]") {
+    // El constructor NO valida contra masa cero.
+    // Un cuerpo con masa=0 no genera campo gravitacional (G*0=0),
+    // pero puede aparecer en el sistema. El test documenta este comportamiento.
+    // NOTA: Si se desea prohibir masa=0, agregar al constructor:
+    //   if (m <= 0.0) throw std::invalid_argument("Masa debe ser positiva");
+    Particle p(0.0, 1.0, 2.0);
+    REQUIRE(p.getMass() == Approx(0.0));
+}
+
+TEST_CASE("Particle: masa negativa se almacena sin error (comportamiento documentado)",
+          "[Particle][mass]") {
+    // El constructor NO valida contra masa negativa.
+    // Físicamente, una masa negativa en el modelo gravitacional producirá
+    // repulsión en lugar de atracción (G*(-m) < 0), lo cual es no físico
+    // en el modelo N-Body estándar.
+    // Este test documenta que el código actual ACEPTA este valor sin error.
+    // NOTA: Se recomienda agregar una guardia en el constructor si el dominio
+    // físico lo requiere.
+    Particle p(-3.7, 0.0, 0.0);
+    REQUIRE(p.getMass() == Approx(-3.7));
+}

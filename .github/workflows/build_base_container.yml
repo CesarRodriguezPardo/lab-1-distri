@@ -51,7 +51,6 @@ jobs:
           cache-to: type=inline
           platforms: linux/amd64
 
-      # After building the image, test that it can compile the project using make
       - name: Compile project in container (smoke compile)
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then
