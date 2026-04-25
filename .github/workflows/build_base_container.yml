@@ -1,0 +1,70 @@
+name: build-base-container
+
+on:
+  push:
+    branches: [main, "feat/ci2.0andtestsandmaybeplots"]
+    paths:
+      - nbody_2d/Dockerfile
+  pull_request:
+    branches: [main]
+    paths:
+      - nbody_2d/Dockerfile
+
+env:
+  REGISTRY: ghcr.io
+
+jobs:
+  build-image-and-compile:
+    name: Build, push :base, and smoke-compile
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: GHCR image name
+        run: |
+          repo_lc=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          echo "IMAGE=ghcr.io/${repo_lc}:base" >> "$GITHUB_ENV"
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ${{ env.REGISTRY }}
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push base image
+        uses: docker/build-push-action@v5
+        with:
+          context: ./nbody_2d
+          file: ./nbody_2d/Dockerfile
+          push: ${{ github.event_name != 'pull_request' }}
+          tags: ${{ env.IMAGE }}
+          cache-from: type=registry,ref=${{ env.IMAGE }}
+          cache-to: type=inline
+          platforms: linux/amd64
+
+      # After building the image, test that it can compile the project using make
+      - name: Compile project in container (smoke compile)
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then
+            IMG="${IMAGE}"
+          else
+            if ! docker build -t ci-base-local -f nbody_2d/Dockerfile ./nbody_2d; then
+              echo "::error::Docker build failed. Fix the Dockerfile before merging."
+              exit 1
+            fi
+            IMG=ci-base-local
+          fi
+          docker run --rm \
+            -v "${{ github.workspace }}/nbody_2d:/workspace" \
+            -w /workspace \
+            "${IMG}" \
+            bash -eux -c "make all"

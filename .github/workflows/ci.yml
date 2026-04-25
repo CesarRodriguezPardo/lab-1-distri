@@ -1,39 +1,62 @@
-# ─────────────────────────────────────────────────────────────
-#  GitHub Actions CI Pipeline — N-Body 2D Simulator
-#  Rol 5: Calidad, CI y Visualización
-#
-#  Se activa en: push y pull_request a main/master
-#
-#  Jobs:
-#    1. build-and-test  → instala g++, corre make test + make all
-#    2. docker-build    → construye la imagen Docker (depende de job 1)
-# ─────────────────────────────────────────────────────────────
-
 name: CI — N-Body 2D
 
 on:
   push:
-    branches: [main]
+    branches: [main, "feat/ci2.0andtestsandmaybeplots"]
   pull_request:
     branches: [main]
 
-jobs:
+permissions:
+  contents: read
+  packages: read
 
-  # ── JOB 1: compilar y correr tests con Catch2 ─────────────
-  build-and-test:
-    name: Build & Test (Catch2)
+jobs:
+  ensure-base-image:
+    name: Verify GHCR base image exists
     runs-on: ubuntu-latest
+    outputs:
+      image: ${{ steps.resolve.outputs.image }}
+    steps:
+      - id: resolve
+        name: Resolve GHCR image reference
+        run: |
+          repo_lc=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
+          img="ghcr.io/${repo_lc}:base"
+          echo "image=${img}" >> "$GITHUB_OUTPUT"
+
+      - name: Log in to GitHub Container Registry
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.repository_owner }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Pull base image from GHCR
+        run: |
+          IMAGE="${{ steps.resolve.outputs.image }}"
+          echo "Pulling: ${IMAGE}"
+          if docker pull "${IMAGE}"; then
+            echo "Base image is available."
+            exit 0
+          fi
+          echo "::error::Could not pull base image. Run build-base-container first."
+          exit 1
+
+  build-and-test:
+    name: Build & Test in container
+    needs: ensure-base-image
+    runs-on: ubuntu-latest
+    container:
+      image: ${{ needs.ensure-base-image.outputs.image }}
+      credentials:
+        username: ${{ github.repository_owner }}
+        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Instalar g++ y make
-        run: |
-          sudo apt-get update -qq
-          sudo apt-get install -y g++ make
-
-      - name: Compilar y ejecutar tests (make test)
+      - name: Compilar y ejecutar pruebas unitarias (make test)
         working-directory: nbody_2d
         run: make test
 
@@ -41,24 +64,10 @@ jobs:
         working-directory: nbody_2d
         run: make all
 
-      - name: Subir test_runner como artefacto (opcional)
+      - name: Guardar artefacto de test
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-binaries
           path: nbody_2d/test_runner
           retention-days: 7
-
-  # ── JOB 2: construir imagen Docker ────────────────────────
-  docker-build:
-    name: Docker Build
-    runs-on: ubuntu-latest
-    needs: build-and-test   # solo corre si job 1 pasó
-
-    steps:
-      - name: Checkout del repositorio
-        uses: actions/checkout@v4
-
-      - name: Construir imagen Docker
-        working-directory: nbody_2d
-        run: docker build -t nbody_lab1 .
