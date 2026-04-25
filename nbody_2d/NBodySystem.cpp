@@ -11,6 +11,12 @@ void NBodySystem::addParticle(const Particle& p){
     bodies.push_back(p);
 }
 
+void NBodySystem::zeroAccelerations() {
+    for (auto& body : bodies) {
+        body.setAcceleration(0.0, 0.0);
+    }
+}
+
 void NBodySystem::computeAccelerations(){
     int nBodies = bodies.size();
 
