@@ -64,23 +64,6 @@ jobs:
         working-directory: nbody_2d
         run: make all
 
-      # make analysis:
-      #   - Ejecuta ./nbody con los parámetros definidos en main.cpp
-      #   - Genera trajectories.dat (posiciones/velocidades por paso)
-      #   - Genera energy_timeseries.dat (K, U, E por paso)
-      - name: Ejecutar simulación y generar datos (make analysis)
-        working-directory: nbody_2d
-        run: make analysis
-
-      # make plot:
-      #   - Llama a python3 scripts/plot_energy.py → energy_plot.png
-      #   - Llama a python3 scripts/plot_trajectories.py → trajectories_plot.png
-      #                                                   → position_vs_time.png
-      #   Requiere python3 + numpy + matplotlib (instalados en el Dockerfile).
-      - name: Generar gráficos de visualización (make plot)
-        working-directory: nbody_2d
-        run: make plot
-
       - name: Guardar artefacto de test
         uses: actions/upload-artifact@v4
         if: always()
@@ -88,31 +71,3 @@ jobs:
           name: test-binaries
           path: nbody_2d/test_runner
           retention-days: 7
-
-      # Subir los archivos de datos como artefactos de CI.
-      # Esto permite descargarlos desde la interfaz de GitHub Actions para
-      # inspección manual y para verificar que la simulación corrió correctamente.
-      - name: Guardar datos de simulación (.dat)
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: simulation-data
-          path: |
-            nbody_2d/trajectories.dat
-            nbody_2d/energy_timeseries.dat
-          retention-days: 14
-
-      # Subir los gráficos como artefactos de CI.
-      # Permiten verificar visualmente los resultados sin necesidad de correr
-      # la simulación localmente.
-      - name: Guardar gráficos de visualización (.png)
-        uses: actions/upload-artifact@v4
-        if: always()
-        with:
-          name: visualization-plots
-          path: |
-            nbody_2d/energy_plot.png
-            nbody_2d/trajectories_plot.png
-            nbody_2d/position_vs_time.png
-          retention-days: 14
-
