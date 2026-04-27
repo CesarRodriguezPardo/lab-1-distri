@@ -6,6 +6,7 @@
 #include <iomanip>
 #include <cmath>
 #include <chrono>
+#include <string>
 
 class NBodySimulator {
 private:
@@ -15,8 +16,8 @@ public:
     NBodySimulator(NBodySystem* sys, double dt);
     void integrateEuler();
     void calculateEnergy(std::ofstream &energyFile);
-    void processBodies(std::ofstream &energyFile);
-    void simulate(int steps);
+    void processBodies(std::ofstream &energyFile, int sim_type);
+    void simulate(int steps, std::string filename, int sim_type);
 };
 
 #endif

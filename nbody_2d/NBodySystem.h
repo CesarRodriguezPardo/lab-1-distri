@@ -4,6 +4,7 @@
 #include <vector>
 #include <cstdlib>
 #include "Particle.h"
+#include <omp.h>
 
 using std::vector;
 
@@ -17,6 +18,7 @@ class NBodySystem {
         void addParticle(const Particle& p);
         void zeroAccelerations();
         void computeAccelerations();
+        void computeAccelerationsParallel(int scheduleType, int chunkSize);
         const std::vector<Particle>& getBodies() const;
         int getCount() const;
         void randomSystem(int amount, int seed = 1);

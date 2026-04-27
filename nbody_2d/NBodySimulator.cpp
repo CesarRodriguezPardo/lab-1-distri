@@ -48,26 +48,30 @@ void NBodySimulator::calculateEnergy(std::ofstream &energyFile){
             << totalEnergy << "\n";
 }
 
-void NBodySimulator::processBodies(std::ofstream &energyFile) {
-    system->computeAccelerations(); //obtengo las aceleraciones
+void NBodySimulator::processBodies(std::ofstream &energyFile, int sim_type) {
+    if (sim_type == 0) {
+        system->computeAccelerations(); //obtengo las aceleraciones
+    } else {
+        system->computeAccelerationsParallel(1, 1); // static scheduling, chunk size 1
+    }
 
     integrateEuler(); //muevo las particulas
 
     calculateEnergy(energyFile);
 }
 
-void NBodySimulator::simulate(int steps) {
+void NBodySimulator::simulate(int steps, std::string filename, int sim_type) {
     //creacion del archivo de energias.dat
     static bool exists = true;
     std::ofstream energyFile;
 
     if (exists) {
         // La primera vez abrimos con ios::out (por defecto borra lo anterior si existe)
-        energyFile.open("energy_timeseries.dat", std::ios::out);
+        energyFile.open(filename, std::ios::out);
         exists = false; 
     } else {
         // Las siguientes veces del bucle abrimos con ios::app (añadir al final)
-        energyFile.open("energy_timeseries.dat", std::ios::app);
+        energyFile.open(filename, std::ios::app);
     }
     energyFile.seekp(0, std::ios::end); 
     if (energyFile.tellp() == 0) {
@@ -81,7 +85,7 @@ void NBodySimulator::simulate(int steps) {
     auto start = std::chrono::high_resolution_clock::now();
 
     for (int step = 0; step < steps; ++step){
-        this->processBodies(energyFile);
+        this->processBodies(energyFile, sim_type);
         system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
         std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
     }
