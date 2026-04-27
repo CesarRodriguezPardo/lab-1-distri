@@ -3,9 +3,12 @@
 #  Rol 5: Calidad, CI y Visualización
 # ─────────────────────────────────────────────────────────────
 
+# OMP flags
+OMPFLAGS = -fopenmp
+
 # Compilador y flags base
 CXX      = g++
-CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
+CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 
 # En macOS (Darwin) se necesita apuntar al SDK de Xcode y usar libc++
 # para que el compilador encuentre los headers de la stdlib (iostream, vector…)
