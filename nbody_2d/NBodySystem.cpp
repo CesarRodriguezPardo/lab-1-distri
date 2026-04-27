@@ -45,6 +45,51 @@ void NBodySystem::computeAccelerations(){
     }
 }
 
+// Función para mapear entero a constante de OpenMP
+omp_sched_t getScheduleFromInt(int type) {
+    switch (type) {
+        case 1: return omp_sched_static;
+        case 2: return omp_sched_dynamic;
+        case 3: return omp_sched_guided;
+        case 4: return omp_sched_auto;
+        default: return omp_sched_static; // Default seguro
+    }
+}
+
+void NBodySystem::computeAccelerationsParallel(int scheduleType, int chunkSize) {
+    // Implementación paralela usando OpenMP
+    int nBodies = bodies.size();
+
+    // scheduleType debería ser 1 (static), 2 (dynamic), 3 (guided) o 4 (auto).
+    omp_set_schedule(getScheduleFromInt(scheduleType), chunkSize);
+
+    #pragma omp parallel for shared(nBodies) schedule(runtime)
+    for (int i = 0; i < nBodies; ++i) {
+        double totalAX = 0.0;
+        double totalAY = 0.0;
+        double xi = bodies[i].getX();
+        double yi = bodies[i].getY();
+
+        for (int j = 0; j < nBodies; ++j) {
+            if (i == j) {
+                continue;
+            }
+
+            double distanceX = bodies[j].getX() - xi;
+            double distanceY = bodies[j].getY() - yi;
+            double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
+            double r = sqrt(rSquared);
+
+            double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
+
+            totalAX += ScalarForce * distanceX;
+            totalAY += ScalarForce * distanceY;
+        }
+
+        bodies[i].setAcceleration(totalAX, totalAY);
+    }
+}
+
 
 const std::vector <Particle>& NBodySystem::getBodies() const {
     return bodies;

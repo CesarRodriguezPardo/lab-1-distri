@@ -50,9 +50,9 @@ int main () {
         cout << "Tipo de sistema no valido. Saliendo." << endl;
         return 1;
     }
-
+    std::string energyFilename = "energy_timeseries_serial.dat";
     NBodySimulator simulator(&system, dt);
 
-    simulator.simulate(steps);
+    simulator.simulate(steps, energyFilename, sim_type);
 
 }
