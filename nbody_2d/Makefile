@@ -1,19 +1,7 @@
-# ─────────────────────────────────────────────────────────────
-#  Makefile — N-Body 2D Simulator
-#  Rol 5: Calidad, CI y Visualización
-# ─────────────────────────────────────────────────────────────
 
 # Compilador y flags base
 CXX      = g++
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra
-
-# En macOS (Darwin) se necesita apuntar al SDK de Xcode y usar libc++
-# para que el compilador encuentre los headers de la stdlib (iostream, vector…)
-# En Linux (Ubuntu/CI) esto no es necesario.
-UNAME := $(shell uname)
-ifeq ($(UNAME), Darwin)
-    CXXFLAGS += -stdlib=libc++ -isysroot $(shell xcrun --show-sdk-path)
-endif
 
 # ─────────────────────────────────────────────────────────────
 #  Fuentes
