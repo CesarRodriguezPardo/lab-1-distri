@@ -56,7 +56,7 @@ omp_sched_t getScheduleFromInt(int type) {
     }
 }
 
-void NBodySystem::computeAccelerationsParallel(int scheduleType, int chunkSize) {
+void NBodySystem::computeAccelerations(int scheduleType, int chunkSize) {
     // Implementación paralela usando OpenMP
     int nBodies = bodies.size();
 
