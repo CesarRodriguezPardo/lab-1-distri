@@ -2,29 +2,53 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Visualización de trayectorias del sistema N-Body.
 #
-# ENTRADA:  trajectories.dat
+# ENTRADA:  trajectories_<modo>.dat  (el primero que exista se usa)
+#   Modos reconocidos: serial, parallel_critical, parallel_nowait,
+#                      tasks_critical, tasks_nowait
 #   Formato: id \t step \t X \t Y \t VX \t VY
-#   Separador: TAB (el archivo usa " \t " espacio-tab-espacio)
+#   Separador: TAB
 #   Primera fila: encabezado.
 #
 # SALIDAS:
-#   trajectories_plot.png  — trayectorias de los primeros 8 cuerpos
+#   trajectories_plot.png  — trayectorias de hasta los primeros 8 cuerpos
 #   position_vs_time.png   — X(t) e Y(t) del cuerpo 0
 #
 # ── ESTRATEGIA DE FILTRADO ────────────────────────────────────────────────────
 # El archivo tiene N cuerpos × S pasos = N×S filas.
-# Con 100 cuerpos, el cuerpo 0 aparece en las filas 0, 100, 200, 300...
-# Usamos 'every N' para saltar de 100 en 100, empezando en la fila del cuerpo.
-#   every <paso>::<inicio>
-#   - <paso>=N_BODIES: avanza N_BODIES filas entre puntos (siguiente aparición del mismo cuerpo)
-#   - <inicio>=ID:     primera fila del cuerpo ID (0-indexed tras skip 1)
-#
-# Esto evita el problema de NaN entre puntos que rompe las líneas.
+# Con N cuerpos, el cuerpo B aparece en las filas B, B+N, B+2N,...
+# Usamos 'every N::B' para seleccionar solo las filas de ese cuerpo.
+# N_BODIES se detecta automáticamente contando IDs únicos en el archivo.
 # ─────────────────────────────────────────────────────────────────────────────
 
 set datafile separator "\t"
 
-N_BODIES = 100   # número de cuerpos en la simulación (debe coincidir con main.cpp)
+# ── Detección dinámica del archivo de trayectorias ────────────────────────────
+labels_traj = "serial parallel_critical parallel_nowait tasks_critical tasks_nowait"
+file_exists(f) = int(system("[ -f '".f."' ] && echo 1 || echo 0"))
+
+traj_file = ""
+do for [i=1:words(labels_traj)] {
+    lbl = word(labels_traj, i)
+    f = "trajectories_".lbl.".dat"
+    if (file_exists(f) && traj_file eq "") {
+        traj_file = f
+        print "Usando archivo de trayectorias: ".f
+    }
+}
+
+if (traj_file eq "") {
+    print "ERROR: No se encontró ningún archivo trajectories_*.dat."
+    print "Ejecute primero: make analysis"
+    exit status 1
+}
+
+# ── Detección automática de N_BODIES ─────────────────────────────────────────
+N_BODIES = int(system("awk 'NR>1{ids[$1]=1} END{print length(ids)}' ".traj_file))
+if (N_BODIES == 0) { N_BODIES = 100 }
+print "N_BODIES detectado: ".N_BODIES
+
+# Número de cuerpos a graficar (máximo 8)
+N_PLOT = (N_BODIES < 8 ? N_BODIES : 8)
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FIGURA 1: Trayectorias en el plano (X, Y) — fondo oscuro
@@ -33,7 +57,7 @@ set terminal pngcairo size 1000,900 enhanced font 'Helvetica,10' \
     background '#0F0F1A'
 set output 'trajectories_plot.png'
 
-set title "Trayectorias N-Body  {/*0.85 (primeros 8 cuerpos)}" \
+set title "Trayectorias N-Body  {/*0.85 (primeros ".N_PLOT." cuerpos)}" \
     font ",13" textcolor rgb '#FFFFFF'
 set xlabel "X [u.a.]" font ",11" textcolor rgb '#CCCCCC'
 set ylabel "Y [u.a.]" font ",11" textcolor rgb '#CCCCCC'
@@ -44,43 +68,23 @@ set key outside top right textcolor rgb '#DDDDDD' \
     box lc rgb '#444444' spacing 1.3 font ",9"
 
 # Paleta de 8 colores distinguibles sobre fondo oscuro
-c0 = '#FF6B6B'
-c1 = '#4ECDC4'
-c2 = '#FFE66D'
-c3 = '#A8E6CF'
-c4 = '#FF8B94'
-c5 = '#88D8B0'
-c6 = '#FCBF49'
-c7 = '#6C63FF'
+colors_traj = "#FF6B6B #4ECDC4 #FFE66D #A8E6CF #FF8B94 #88D8B0 #FCBF49 #6C63FF"
 
-# 'every N_BODIES::ID' selecciona filas: ID, ID+N, ID+2N,...
-# (fila 0-indexed contando desde el primer dato, es decir tras skip 1)
-# col 3 = X, col 4 = Y
-plot \
-  'trajectories.dat' skip 1 every N_BODIES::0 using 3:4 \
-      with lines lw 0.9 lc rgb c0 title 'Cuerpo 0', \
-  'trajectories.dat' skip 1 every N_BODIES::1 using 3:4 \
-      with lines lw 0.9 lc rgb c1 title 'Cuerpo 1', \
-  'trajectories.dat' skip 1 every N_BODIES::2 using 3:4 \
-      with lines lw 0.9 lc rgb c2 title 'Cuerpo 2', \
-  'trajectories.dat' skip 1 every N_BODIES::3 using 3:4 \
-      with lines lw 0.9 lc rgb c3 title 'Cuerpo 3', \
-  'trajectories.dat' skip 1 every N_BODIES::4 using 3:4 \
-      with lines lw 0.9 lc rgb c4 title 'Cuerpo 4', \
-  'trajectories.dat' skip 1 every N_BODIES::5 using 3:4 \
-      with lines lw 0.9 lc rgb c5 title 'Cuerpo 5', \
-  'trajectories.dat' skip 1 every N_BODIES::6 using 3:4 \
-      with lines lw 0.9 lc rgb c6 title 'Cuerpo 6', \
-  'trajectories.dat' skip 1 every N_BODIES::7 using 3:4 \
-      with lines lw 0.9 lc rgb c7 title 'Cuerpo 7'
+# Construir comando de plot dinámicamente
+cmd_traj = ""
+do for [b=0:N_PLOT-1] {
+    clr = word(colors_traj, b+1)
+    sep = (cmd_traj eq "" ? "" : ", ")
+    cmd_traj = cmd_traj.sep \
+        ."'".traj_file."' skip 1 every ".N_BODIES."::".b \
+        ." using 3:4 with lines lw 0.9 lc rgb '".clr."' title 'Cuerpo ".b."'"
+}
+eval("plot ".cmd_traj)
 
 print "trajectories_plot.png generado correctamente."
 
 # ─────────────────────────────────────────────────────────────────────────────
 # FIGURA 2: X(t) e Y(t) del cuerpo 0 — fondo blanco
-# ─────────────────────────────────────────────────────────────────────────────
-# col 2 = step, col 3 = X, col 4 = Y
-# 'every N_BODIES::0' selecciona solo filas del cuerpo 0
 # ─────────────────────────────────────────────────────────────────────────────
 set terminal pngcairo size 1000,600 enhanced font 'Helvetica,10' \
     background '#FFFFFF'
@@ -103,7 +107,7 @@ set ylabel "X [u.a.]" font ",9"
 unset xlabel
 set bmargin 0
 set tmargin 2
-plot 'trajectories.dat' skip 1 every N_BODIES::0 using 2:3 \
+plot traj_file skip 1 every N_BODIES::0 using 2:3 \
     with lines lw 1.2 lc rgb '#4ECDC4' notitle
 
 # Panel Y(t)
@@ -112,7 +116,7 @@ set ylabel "Y [u.a.]" font ",9"
 set xlabel "Paso de simulación" font ",10"
 set bmargin 3
 set tmargin 0
-plot 'trajectories.dat' skip 1 every N_BODIES::0 using 2:4 \
+plot traj_file skip 1 every N_BODIES::0 using 2:4 \
     with lines lw 1.2 lc rgb '#FF6B9D' notitle
 
 unset multiplot

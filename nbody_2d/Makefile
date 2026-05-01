@@ -3,7 +3,7 @@
 OMPFLAGS = -fopenmp
 
 # Compilador y flags base
-CXX      = g++
+CXX      = g++-15
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 
 # ─────────────────────────────────────────────────────────────
@@ -57,8 +57,7 @@ analysis: nbody
 	@echo "==> Ejecutando simulación para generar archivos de datos..."
 	./nbody
 	@echo "==> Archivos generados:"
-	@echo "     - trajectories.dat"
-	@echo "     - energy_timeseries.dat"
+	@ls energy_*.dat trajectories_*.dat 2>/dev/null | sed 's/^/     - /' || echo "     (ningún archivo .dat encontrado)"
 
 # make plot:
 #   1. Llama a make analysis (asegura que los .dat existen y son frescos)
