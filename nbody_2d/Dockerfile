@@ -1,28 +1,30 @@
-# Se define una imagen multi-stage para el proyecto
+# Base image for the GitHub Actions workflow (and local parity): Debian + C++ build
+# tools + Python visualization stack.
+# The workflow mounts the repo at /workspace and runs make there;
+# this file does not copy or build the project itself.
+FROM debian:bookworm-slim
 
-# Stage Builder: se encarga de compilar el proyecto
+ENV DEBIAN_FRONTEND=noninteractive
 
-# se utiliza debian:bookworm-slim como base para asegurar compatibilidad de librerías
-FROM debian:bookworm-slim AS builder 
+# ── Capa 1: herramientas de compilación C++ ───────────────────────────────────
+# Se instalan en una capa separada para aprovechar el cache de Docker:
+# si solo cambian las dependencias Python, esta capa no se reconstruye.
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    ca-certificates \
+    g++ \
+    make \
+  && rm -rf /var/lib/apt/lists/*
 
-# Instalar dependencias para compilar
-RUN apt-get update && apt-get install -y g++ make
+# ── Capa 2: gnuplot para generación de gráficos (make plot) ──────────────────
+# gnuplot es un paquete del sistema sin dependencias de pip/venv.
+# Instala sin fricción en cualquier entorno Debian/Ubuntu.
+# Equivalente local en macOS: brew install gnuplot
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+    gnuplot \
+  && rm -rf /var/lib/apt/lists/*
 
-# se define el directorio app dentro del contenedor y se copia
-# todo el contenido del proyecto
-WORKDIR /app
-COPY . .
+WORKDIR /workspace
 
-# utilizamos make para compilar
-RUN make all
-
-#############################################
-
-# Stage Runtime: se encarga de ejecutar el proyecto
-FROM debian:bookworm-slim AS runtime
-
-# se copia el binario compilado de la etapa anterior.
-WORKDIR /app
-COPY --from=builder /app/nbody .
-
-CMD ["./nbody"]
+CMD ["bash"]

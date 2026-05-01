@@ -2,8 +2,11 @@
 nbody_2d/nbody
 nbody_2d/test_runner
 
-# Archivos de datos generados
+# Archivos de datos generados y graficos
 nbody_2d/*.dat
+*.dat
+
+nbody_2d/*.png
 *.dat
 
 # Archivos de macOS

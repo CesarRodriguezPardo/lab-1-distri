@@ -1,7 +1,3 @@
-# ─────────────────────────────────────────────────────────────
-#  Makefile — N-Body 2D Simulator
-#  Rol 5: Calidad, CI y Visualización
-# ─────────────────────────────────────────────────────────────
 
 # OMP flags
 OMPFLAGS = -fopenmp
@@ -9,14 +5,6 @@ OMPFLAGS = -fopenmp
 # Compilador y flags base
 CXX      = g++
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
-
-# En macOS (Darwin) se necesita apuntar al SDK de Xcode y usar libc++
-# para que el compilador encuentre los headers de la stdlib (iostream, vector…)
-# En Linux (Ubuntu/CI) esto no es necesario.
-UNAME := $(shell uname)
-ifeq ($(UNAME), Darwin)
-    CXXFLAGS += -stdlib=libc++ -isysroot $(shell xcrun --show-sdk-path)
-endif
 
 # ─────────────────────────────────────────────────────────────
 #  Fuentes
@@ -35,10 +23,13 @@ TEST_SRCS = tests/catch_amalgamated.cpp \
             tests/test_Particle.cpp \
             tests/test_NBodySystem.cpp
 
+# Directorio de scripts Python
+SCRIPTS_DIR = scripts
+
 # ─────────────────────────────────────────────────────────────
 #  Targets
 # ─────────────────────────────────────────────────────────────
-.PHONY: all test clean
+.PHONY: all test analysis plot clean
 
 # Target por defecto: compila el binario principal
 all: nbody
@@ -55,6 +46,40 @@ test: $(SRCS) $(TEST_SRCS)
 	$(CXX) $(CXXFLAGS) $^ -o test_runner
 	./test_runner
 
-# make clean: elimina binarios y datos generados
+# make analysis:
+#   1. Compila el binario principal si no está actualizado (dependencia: nbody)
+#   2. Ejecuta la simulación → genera dos archivos de datos:
+#        trajectories.dat      — posición y velocidad de cada cuerpo por paso
+#        energy_timeseries.dat — K(t), U(t), E(t) de cada paso
+#   Nota: si los .dat ya existen de una corrida anterior, make los sobreescribirá
+#   porque 'nbody' es el target de prerequisito (no los .dat en sí).
+analysis: nbody
+	@echo "==> Ejecutando simulación para generar archivos de datos..."
+	./nbody
+	@echo "==> Archivos generados:"
+	@ls energy_*.dat trajectories_*.dat 2>/dev/null | sed 's/^/     - /' || echo "     (ningún archivo .dat encontrado)"
+
+# make plot:
+#   1. Llama a make analysis (asegura que los .dat existen y son frescos)
+#   2. Ejecuta el script de energía → genera energy_plot.png
+#      Lee energy_timeseries.dat; muestra K(t), U(t), E(t) y anotación de deriva.
+#   3. Ejecuta el script de trayectorias → genera:
+#        trajectories_plot.png   — trayectorias en el plano (x,y) con gradiente temporal
+#        position_vs_time.png    — x(t) e y(t) del cuerpo 0
+#   Requisito del entorno: gnuplot instalado.
+#     macOS  → brew install gnuplot
+#     Debian → apt-get install gnuplot   (ya incluido en el Dockerfile)
+plot: analysis
+	@echo "==> Generando gráfico de energía..."
+	gnuplot $(SCRIPTS_DIR)/plot_energy.gnu
+	@echo "==> Generando gráficos de trayectorias..."
+	gnuplot $(SCRIPTS_DIR)/plot_trajectories.gnu
+	@echo "==> Gráficos listos:"
+	@echo "     - energy_plot.png"
+	@echo "     - trajectories_plot.png"
+	@echo "     - position_vs_time.png"
+
+# make clean: elimina binarios, datos generados y figuras
 clean:
-	rm -f nbody test_runner *.dat
+	rm -f nbody test_runner *.dat *.png
+

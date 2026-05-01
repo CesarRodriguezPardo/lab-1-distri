@@ -174,7 +174,7 @@ En este proyecto, `Particle` es la clase base de todo. Si `kick()` o `drift()` c
 
 ---
 
-#### Test 1 — Constructor
+#### Test 1 — Constructor 
 
 ```cpp
 TEST_CASE("Particle: el constructor inicializa todos los campos correctamente",
