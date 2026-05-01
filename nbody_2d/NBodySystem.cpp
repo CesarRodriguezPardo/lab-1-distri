@@ -9,42 +9,83 @@ NBodySystem::NBodySystem(double G, double epsilon)
 
 void NBodySystem::addParticle(const Particle& p){
     bodies.push_back(p);
-    //bodies.emplace_back(p); esto se suponque que podría ahorrarle tiempo al procesador (faltan test)
 }
 
-/*
-void NBodySystem::zeroAccelerations (){
-    for(auto& body : bodies) {
-        body.setAcceleration(0.0 , 0.0);
+void NBodySystem::zeroAccelerations() {
+    for (auto& body : bodies) {
+        body.setAcceleration(0.0, 0.0);
     }
 }
-*/
 
 void NBodySystem::computeAccelerations(){
     int nBodies = bodies.size();
-    //double distanceX, distanceY, rSquared, r; - si se declaran aquí
-    //para el serial es mejor porque no tiene que declarar en cada bucle
-    //pero para el paralelizado se forma una condicion de carrera, entonces
-    //es mejor declararlo dentro del ciclo, para que cada hilo tenga su variable propia
 
     //Doble bucle para interacciones pareja-a-pareja
     for (int i = 0; i < nBodies; ++i) {
         double distanceX, distanceY, rSquared, r;
         double totalAX = 0;
         double totalAY = 0;
+        double xi = bodies[i].getX();
+        double yi = bodies[i].getY();
         for (int j = 0; j < nBodies; ++j) {
 
             if (i != j) {
-                distanceX = bodies[j].getX() - bodies[i].getX();
-                distanceY = bodies[j].getY() - bodies[i].getY();
+                distanceX = bodies[j].getX() - xi;
+                distanceY = bodies[j].getY() - yi;
                 rSquared = distanceX * distanceX
                          + distanceY * distanceY
                          + eps * eps;
                 r = sqrt(rSquared);
-                totalAX += (G_const * bodies[j].getMass() * distanceX) / (r * r * r);
-                totalAY += (G_const * bodies[j].getMass() * distanceY) / (r * r * r);
+                double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
+                totalAX += ScalarForce * distanceX;
+                totalAY += ScalarForce * distanceY;
             }
         }
+        bodies[i].setAcceleration(totalAX, totalAY);
+    }
+}
+
+// Función para mapear entero a constante de OpenMP
+omp_sched_t getScheduleFromInt(int type) {
+    switch (type) {
+        case 1: return omp_sched_static;
+        case 2: return omp_sched_dynamic;
+        case 3: return omp_sched_guided;
+        case 4: return omp_sched_auto;
+        default: return omp_sched_static; // Default seguro
+    }
+}
+
+void NBodySystem::computeAccelerations(int scheduleType, int chunkSize) {
+    // Implementación paralela usando OpenMP
+    int nBodies = bodies.size();
+
+    // scheduleType debería ser 1 (static), 2 (dynamic), 3 (guided) o 4 (auto).
+    omp_set_schedule(getScheduleFromInt(scheduleType), chunkSize);
+
+    #pragma omp parallel for shared(nBodies) schedule(runtime)
+    for (int i = 0; i < nBodies; ++i) {
+        double totalAX = 0.0;
+        double totalAY = 0.0;
+        double xi = bodies[i].getX();
+        double yi = bodies[i].getY();
+
+        for (int j = 0; j < nBodies; ++j) {
+            if (i == j) {
+                continue;
+            }
+
+            double distanceX = bodies[j].getX() - xi;
+            double distanceY = bodies[j].getY() - yi;
+            double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
+            double r = sqrt(rSquared);
+
+            double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
+
+            totalAX += ScalarForce * distanceX;
+            totalAY += ScalarForce * distanceY;
+        }
+
         bodies[i].setAcceleration(totalAX, totalAY);
     }
 }
@@ -58,24 +99,27 @@ int NBodySystem::getCount() const {
     return bodies.size();
 }
 
-void NBodySystem::randomSystem (int amount, int seed){
-    srand(seed);
-    for (int i = 0; i < amount; ++i){
-        double randomX = (double)rand() / RAND_MAX * 100.0;
-        double randomY = (double)rand() / RAND_MAX * 100.0;
-        double randomMass = 1.0 + (double)rand() / RAND_MAX * 10.0;
+void NBodySystem::randomSystem(int amount, int seed) {
+    std::mt19937 gen(seed);
+    
+    std::uniform_real_distribution<double> distPos(0.0, 100.0);
+    std::uniform_real_distribution<double> distMass(1.0, 11.0); // 1.0 + max 10.0 = 11.0
+    
+    // Distribución para las velocidades, por si queremos comenzar con velocidades aleatorias
+    // std::uniform_real_distribution<double> distVel(-1.0, 1.0);
 
-        //se podrían guardar velocidades aleatorias en caso de querer hacer otras estructuras;
-        //double vx = -1.0 + (double)rand() / RAND_MAX * 2.0; 
-        //double vy = -1.0 + (double)rand() / RAND_MAX * 2.0;
+    for (int i = 0; i < amount; ++i) {
+        double randomX = distPos(gen);
+        double randomY = distPos(gen);
+        double randomMass = distMass(gen);
 
+        // double vx = distVel(gen);
+        // double vy = distVel(gen);
 
         Particle p(randomMass, randomX, randomY);
         
-        // 4. Agregar al vector 'bodies' (usa push_back)
         this->addParticle(p);
     }
-    
 }
 
 void NBodySystem::bynarySystem (int seed) {
