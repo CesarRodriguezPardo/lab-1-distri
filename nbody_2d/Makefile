@@ -13,7 +13,9 @@ CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 # Fuentes del simulador (sin main.cpp → reutilizables en tests)
 SRCS = Particle.cpp \
        NBodySystem.cpp \
-       NBodySimulator.cpp
+       NBodySimulator.cpp \
+       MetricsCalculator.cpp \
+       Benchmark.cpp
 
 # Fuentes de tests:
 #  - catch_amalgamated.cpp  → implementación de Catch2 v3 (incluye main())
@@ -29,12 +31,15 @@ SCRIPTS_DIR = scripts
 # ─────────────────────────────────────────────────────────────
 #  Targets
 # ─────────────────────────────────────────────────────────────
-.PHONY: all test analysis plot clean
+.PHONY: all test analysis plot clean benchmark
 
 # Target por defecto: compila el binario principal
 all: nbody
 
 nbody: main.cpp $(SRCS)
+	$(CXX) $(CXXFLAGS) $^ -o $@
+
+benchmark: benchmark_main.cpp $(SRCS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 # make test:

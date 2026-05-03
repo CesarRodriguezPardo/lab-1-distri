@@ -1,7 +1,7 @@
 # Binarios generados
 nbody_2d/nbody
 nbody_2d/test_runner
-
+nbody_2d/benchmark
 # Archivos de datos generados y graficos
 nbody_2d/*.dat
 *.dat

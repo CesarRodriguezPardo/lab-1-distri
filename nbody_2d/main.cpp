@@ -2,6 +2,8 @@
 #include <string>
 #include "NBodySystem.h"
 #include "NBodySimulator.h"
+#include "Benchmark.h"
+#include "MetricsCalculator.h"
 
 using namespace std;
 

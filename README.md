@@ -818,4 +818,36 @@ El pipeline CI se activa automáticamente. Para verlo:
 
 ---
 
-*Documentación generada para el Rol 5 — Lab 1 Sistemas Distribuidos*
+## 11. Métricas y Benchmarks (Rol 2)
+
+Se han incorporado dos nuevas herramientas al entorno para evaluar el estado físico del sistema y medir el rendimiento algorítmico del integrador implementado, fuertemente enfocados en la escalabilidad paralela usando **OpenMP**:
+
+### Compilación y Ejecución del Benchmark
+
+Para ejecutar el módulo de evaluación de métricas físicas y su respectivo análisis de escalabilidad de hilos:
+
+```bash
+cd nbody_2d
+
+# Compilar el binario de benchmark
+make benchmark
+
+# Ejecutar el perfilador y exportar datos
+./benchmark
+```
+
+### ¿Qué se está calculando internamente?
+
+1. **`MetricsCalculator`**: Demuestra el uso de sincronización avanzada en OpenMP (`atomic`, `reduction`, `firstprivate`, `lastprivate`). Calcula y exporta a `energy_timeseries.dat`:
+   - Energía Cinética y Potencial (con factor de suavizado $\epsilon$).
+   - Centro de Masas ($R_{cm}$) y Radio Cuadrático Medio ($R_{rms}$).
+   - Momento Lineal ($P$) y Distancia Mínima.
+
+2. **`Benchmark`**: Utiliza `omp_get_wtime()` iterando de 1 hasta 4 hilos (configurable), repitiendo cada escenario múltiples veces para obtener un T promedio y su desviación estándar ($\sigma_T$).
+   - Exporta resultados a `scaling_analysis.dat`.
+   - Propaga el error estadístico para el Speedup ($S_p$) y la Eficiencia ($E_p$).
+   - Estima matemáticamente la fracción serial del algoritmo según la *Ley de Amdahl*.
+
+---
+
+*Documentación técnica del repositorio de N-Body 2D.*
