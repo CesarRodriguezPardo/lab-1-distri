@@ -86,5 +86,5 @@ plot: analysis
 
 # make clean: elimina binarios, datos generados y figuras
 clean:
-	rm -f nbody test_runner *.dat *.png
+	rm -f nbody test_runner *.dat *.png benchmark
 
