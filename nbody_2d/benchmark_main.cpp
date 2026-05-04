@@ -24,11 +24,18 @@ int main() {
     std::cout << " - RMS Radius: " << metrics.getRmsRadius() << "\n";
 
     std::cout << "\nEjecutando Benchmark de computeAccelerations (1 a 4 hilos, 5 repeticiones)...\n";
-    Benchmark bench(5); 
-    bench.runScalingAnalysis(4, [&]() {
+    Benchmark bench(20); // 20 repeticiones por lote
+    bench.runScalingAnalysis(4, [&](bool inside_parallel) {
+        // Zeroing has to be done carefully inside parallel. 
+        // We will do it master-only or single-only?
+        // Actually, zeroAccelerations sets all ax, ay to 0. It is O(N) and fast. 
+        // We can let the master do it or parallelize it. 
+        // For benchmarking purposes, zeroing can be parallelized or master-only.
+        #pragma omp single
         system.zeroAccelerations();
-        system.computeAccelerations(); // asumiendo que scheduleType=1, chunkSize=10 es default
-    });
+        
+        system.computeAccelerations(1, 0, inside_parallel); // scheduleType=1 (static)
+    }, true);
     bench.saveResultsToFile("scaling_analysis.dat");
 
     return 0;

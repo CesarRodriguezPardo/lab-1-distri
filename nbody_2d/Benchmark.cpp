@@ -7,40 +7,82 @@
 
 Benchmark::Benchmark(int repetitions) : numRepetitions(repetitions) {}
 
-void Benchmark::runExperiment(int numThreads, const std::function<void()>& func, double& avgTime, double& stdDevTime) {
+void Benchmark::runExperiment(int numThreads, const std::function<void(bool)>& func, double& avgTime, double& stdDevTime, bool fork_join_outside) {
     omp_set_num_threads(numThreads);
     
-    std::vector<double> times(numRepetitions);
+    // Usaremos lotes para diluir el ruido del OS y mejorar la estabilidad estadística
+    int numBatches = 5;
+    int repsPerBatch = numRepetitions; // repeticiones por lote
+    
+    std::vector<double> batchTimes(numBatches);
     double sumTimes = 0.0;
     
-    // Repetimos el experimento
-    for (int i = 0; i < numRepetitions; ++i) {
-        double start = omp_get_wtime();
-        func();
-        double end = omp_get_wtime();
+    if (fork_join_outside) {
+        #pragma omp parallel
+        {
+            // Warm-up: calentar caches y levantar frecuencia del CPU
+            for (int w = 0; w < 5; ++w) {
+                func(true); // true = inside_parallel
+            }
+            #pragma omp barrier
+            
+            for (int b = 0; b < numBatches; ++b) {
+                double start_time = 0.0;
+                #pragma omp master
+                start_time = omp_get_wtime();
+                
+                for (int i = 0; i < repsPerBatch; ++i) {
+                    func(true);
+                }
+                
+                #pragma omp barrier
+                #pragma omp master
+                {
+                    double end_time = omp_get_wtime();
+                    // Tiempo promedio de 1 iteración en este lote
+                    batchTimes[b] = (end_time - start_time) / repsPerBatch;
+                    sumTimes += batchTimes[b];
+                }
+                #pragma omp barrier // esperar a que termine el master
+            }
+        }
+    } else {
+        // Warm-up
+        for (int w = 0; w < 5; ++w) {
+            func(false);
+        }
         
-        times[i] = end - start;
-        sumTimes += times[i];
+        for (int b = 0; b < numBatches; ++b) {
+            double start_time = omp_get_wtime();
+            
+            for (int i = 0; i < repsPerBatch; ++i) {
+                func(false);
+            }
+            
+            double end_time = omp_get_wtime();
+            batchTimes[b] = (end_time - start_time) / repsPerBatch;
+            sumTimes += batchTimes[b];
+        }
     }
     
-    // Promedio de tiempo (T)
-    avgTime = sumTimes / numRepetitions;
+    // Promedio de tiempo (T) sobre los lotes
+    avgTime = sumTimes / numBatches;
     
-    // Desviacion estandar (sigma_T)
+    // Desviacion estandar (sigma_T) de los promedios de los lotes
     double sumSqDiff = 0.0;
-    for (int i = 0; i < numRepetitions; ++i) {
-        double diff = times[i] - avgTime;
+    for (int b = 0; b < numBatches; ++b) {
+        double diff = batchTimes[b] - avgTime;
         sumSqDiff += diff * diff;
     }
     
-    if (numRepetitions > 1) {
-        stdDevTime = std::sqrt(sumSqDiff / (numRepetitions - 1));
+    if (numBatches > 1) {
+        stdDevTime = std::sqrt(sumSqDiff / (numBatches - 1));
     } else {
         stdDevTime = 0.0;
     }
 }
 
-void Benchmark::runScalingAnalysis(int maxThreads, const std::function<void()>& func) {
+void Benchmark::runScalingAnalysis(int maxThreads, const std::function<void(bool)>& func, bool fork_join_outside) {
     results.clear();
     
     double t1_avg = 0.0;
@@ -48,7 +90,7 @@ void Benchmark::runScalingAnalysis(int maxThreads, const std::function<void()>& 
     
     for (int p = 1; p <= maxThreads; ++p) {
         double avgTime, stdDevTime;
-        runExperiment(p, func, avgTime, stdDevTime);
+        runExperiment(p, func, avgTime, stdDevTime, fork_join_outside);
         
         BenchmarkResult res;
         res.numThreads = p;

@@ -42,33 +42,49 @@ void MetricsCalculator::calculateEnergy(int method) {
             U -= G * u_local;
         }
     } else if (method == 1) {
-        // Method 1: Using atomic
-        K = 0.0;
-        U = 0.0;
-        #pragma omp parallel for
-        for (int i = 0; i < n; ++i) {
-            double vx = bodies[i].getVX();
-            double vy = bodies[i].getVY();
-            double v2 = vx * vx + vy * vy;
-            double k_local = 0.5 * bodies[i].getMass() * v2;
+        // Method 1: Explicit reduction with padding to avoid False Sharing
+        // alignas(64) ensures each thread's local accumulator is on a separate cache line
+        struct alignas(64) PaddedAcc {
+            double k_val = 0.0;
+            double u_val = 0.0;
+        };
+        
+        int max_threads = omp_get_max_threads();
+        std::vector<PaddedAcc> local_accs(max_threads);
+
+        #pragma omp parallel
+        {
+            int tid = omp_get_thread_num();
             
-            #pragma omp atomic
-            K += k_local;
+            // Kinetic energy - Uniform workload, static schedule
+            #pragma omp for schedule(static) nowait
+            for (int i = 0; i < n; ++i) {
+                double vx = bodies[i].getVX();
+                double vy = bodies[i].getVY();
+                double v2 = vx * vx + vy * vy;
+                local_accs[tid].k_val += 0.5 * bodies[i].getMass() * v2;
+            }
+
+            // Potential energy - Triangular workload, dynamic schedule
+            // schedule(dynamic, 16) is great for mitigating load imbalance in i < j loops
+            #pragma omp for schedule(dynamic, 16)
+            for (int i = 0; i < n; ++i) {
+                double u_local = 0.0;
+                for (int j = i + 1; j < n; ++j) {
+                    double dx = bodies[j].getX() - bodies[i].getX();
+                    double dy = bodies[j].getY() - bodies[i].getY();
+                    double distSq = dx * dx + dy * dy + eps * eps;
+                    u_local += (bodies[i].getMass() * bodies[j].getMass()) / std::sqrt(distSq);
+                }
+                local_accs[tid].u_val -= G * u_local;
+            }
         }
 
-        #pragma omp parallel for schedule(dynamic)
-        for (int i = 0; i < n; ++i) {
-            double u_local = 0.0;
-            for (int j = i + 1; j < n; ++j) {
-                double dx = bodies[j].getX() - bodies[i].getX();
-                double dy = bodies[j].getY() - bodies[i].getY();
-                double distSq = dx * dx + dy * dy + eps * eps;
-                u_local += (bodies[i].getMass() * bodies[j].getMass()) / std::sqrt(distSq);
-            }
-            double u_term = -G * u_local;
-            
-            #pragma omp atomic
-            U += u_term;
+        K = 0.0;
+        U = 0.0;
+        for(int t = 0; t < max_threads; ++t) {
+            K += local_accs[t].k_val;
+            U += local_accs[t].u_val;
         }
     }
 
@@ -145,9 +161,9 @@ void MetricsCalculator::calculateFinalStateLastprivate() {
         rmsRadius = std::sqrt(sumSqDist / totalMass);
     }
     
-    // Calculo de distancia minima
+    // Calculo de distancia minima - Triangular workload (dynamic schedule is critical)
     double min_dSq = std::numeric_limits<double>::max();
-    #pragma omp parallel for reduction(min:min_dSq) schedule(dynamic)
+    #pragma omp parallel for reduction(min:min_dSq) schedule(dynamic, 16)
     for(int i = 0; i < n; ++i) {
         for(int j = i + 1; j < n; ++j) {
             double dx = bodies[j].getX() - bodies[i].getX();
