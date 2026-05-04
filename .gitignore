@@ -13,3 +13,6 @@ nbody_2d/*.png
 .DS_Store
 
 lab_1.pdf
+
+*.exe
+*.png
