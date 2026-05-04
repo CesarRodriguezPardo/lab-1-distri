@@ -1,9 +1,8 @@
-
 # OMP flags
 OMPFLAGS = -fopenmp
 
 # Compilador y flags base
-CXX      = g++
+CXX      = g++-15
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 
 # ─────────────────────────────────────────────────────────────
@@ -25,7 +24,7 @@ TEST_SRCS = tests/catch_amalgamated.cpp \
             tests/test_Particle.cpp \
             tests/test_NBodySystem.cpp
 
-# Directorio de scripts Python
+# Directorio de scripts Gnuplot
 SCRIPTS_DIR = scripts
 
 # ─────────────────────────────────────────────────────────────
@@ -41,6 +40,7 @@ nbody: main.cpp $(SRCS)
 
 benchmark: benchmark_main.cpp $(SRCS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
+	./benchmark
 
 # make test:
 #   1. Compila SRCS + TEST_SRCS → test_runner
@@ -54,10 +54,8 @@ test: $(SRCS) $(TEST_SRCS)
 # make analysis:
 #   1. Compila el binario principal si no está actualizado (dependencia: nbody)
 #   2. Ejecuta la simulación → genera dos archivos de datos:
-#        trajectories.dat      — posición y velocidad de cada cuerpo por paso
-#        energy_timeseries.dat — K(t), U(t), E(t) de cada paso
-#   Nota: si los .dat ya existen de una corrida anterior, make los sobreescribirá
-#   porque 'nbody' es el target de prerequisito (no los .dat en sí).
+#        trajectories_<modo>.dat  — posición y velocidad de cada cuerpo por paso
+#        energy_<modo>.dat        — K(t), U(t), E(t) de cada paso
 analysis: nbody
 	@echo "==> Ejecutando simulación para generar archivos de datos..."
 	./nbody
@@ -65,26 +63,34 @@ analysis: nbody
 	@ls energy_*.dat trajectories_*.dat 2>/dev/null | sed 's/^/     - /' || echo "     (ningún archivo .dat encontrado)"
 
 # make plot:
-#   1. Llama a make analysis (asegura que los .dat existen y son frescos)
-#   2. Ejecuta el script de energía → genera energy_plot.png
-#      Lee energy_timeseries.dat; muestra K(t), U(t), E(t) y anotación de deriva.
-#   3. Ejecuta el script de trayectorias → genera:
-#        trajectories_plot.png   — trayectorias en el plano (x,y) con gradiente temporal
-#        position_vs_time.png    — x(t) e y(t) del cuerpo 0
+#   1. Llama a make analysis (asegura que los .dat de simulación existen)
+#   2. Si scaling_analysis.dat no existe, llama a make benchmark
+#   3. Genera los 5 gráficos con gnuplot:
+#        energy_plot.png        — K(t), U(t), E(t)
+#        trajectories_plot.png  — trayectorias XY (primeros 8 cuerpos)
+#        position_vs_time.png   — X(t) e Y(t) del cuerpo 0
+#        speedup_plot.png       — Sp medido + ideal + predicción de Amdahl
+#        efficiency_plot.png    — Ep medido + ideal + Amdahl + Tp vs hilos
 #   Requisito del entorno: gnuplot instalado.
 #     macOS  → brew install gnuplot
 #     Debian → apt-get install gnuplot   (ya incluido en el Dockerfile)
 plot: analysis
+	@[ -f scaling_analysis.dat ] || $(MAKE) benchmark
 	@echo "==> Generando gráfico de energía..."
 	gnuplot $(SCRIPTS_DIR)/plot_energy.gnu
 	@echo "==> Generando gráficos de trayectorias..."
 	gnuplot $(SCRIPTS_DIR)/plot_trajectories.gnu
+	@echo "==> Generando gráfico de speedup + Amdahl..."
+	gnuplot $(SCRIPTS_DIR)/plot_speedup.gnu
+	@echo "==> Generando gráfico de eficiencia..."
+	gnuplot $(SCRIPTS_DIR)/plot_efficiency.gnu
 	@echo "==> Gráficos listos:"
 	@echo "     - energy_plot.png"
 	@echo "     - trajectories_plot.png"
 	@echo "     - position_vs_time.png"
+	@echo "     - speedup_plot.png"
+	@echo "     - efficiency_plot.png"
 
 # make clean: elimina binarios, datos generados y figuras
 clean:
 	rm -f nbody test_runner *.dat *.png benchmark
-

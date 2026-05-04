@@ -456,3 +456,50 @@ TEST_CASE("NBodySimulator: misma semilla produce resultados idénticos (reproduc
         REQUIRE(bA[i].getVY() == Approx(bB[i].getVY()).margin(1e-14));
     }
 }
+
+// ─────────────────────────────────────────────
+//  SECCIÓN: zeroAccelerations
+// ─────────────────────────────────────────────
+// Verifica que zeroAccelerations() pone ax = ay = 0.0 en TODOS los cuerpos,
+// incluso después de que computeAccelerations() haya calculado valores no nulos.
+//
+// Error que detecta: si zeroAccelerations() no iterara sobre todos los cuerpos
+// (e.g., off-by-one) o si usara addAcceleration en vez de setAcceleration,
+// algunos cuerpos quedarían con aceleraciones residuales de la llamada anterior.
+
+TEST_CASE("NBodySystem: zeroAccelerations pone todas las aceleraciones a cero",
+          "[NBodySystem][zeroAcc]") {
+    // Geometría con fuerzas no nulas para que computeAccelerations produzca
+    // valores distintos de cero antes de llamar a zeroAccelerations.
+    NBodySystem sys(1.0, 0.0);
+    sys.addParticle(Particle(1.0,  0.0, 0.0));
+    sys.addParticle(Particle(2.0, 10.0, 0.0));
+    sys.addParticle(Particle(3.0,  5.0, 8.0));
+
+    // Paso 1: calcular aceleraciones (no nulas)
+    sys.computeAccelerations();
+
+    // Verificar que al menos uno de ellos es no nulo (sanity check)
+    const auto& b_before = sys.getBodies();
+    bool some_nonzero = (b_before[0].getAX() != 0.0 || b_before[1].getAX() != 0.0);
+    REQUIRE(some_nonzero);
+
+    // Paso 2: llamar a zeroAccelerations
+    sys.zeroAccelerations();
+
+    // Paso 3: TODOS deben quedar en exactamente 0.0
+    const auto& b = sys.getBodies();
+    for (size_t i = 0; i < b.size(); ++i) {
+        INFO("Cuerpo " << i << " no fue zeroed correctamente");
+        REQUIRE(b[i].getAX() == Approx(0.0).margin(1e-15));
+        REQUIRE(b[i].getAY() == Approx(0.0).margin(1e-15));
+    }
+}
+
+TEST_CASE("NBodySystem: zeroAccelerations en sistema vacío no falla",
+          "[NBodySystem][zeroAcc]") {
+    // Caso borde: llamar a zeroAccelerations con bodies.empty() no debe crashear.
+    NBodySystem sys(1.0, 0.05);
+    REQUIRE_NOTHROW(sys.zeroAccelerations());
+}
+
