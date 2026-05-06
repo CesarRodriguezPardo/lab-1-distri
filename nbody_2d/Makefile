@@ -23,7 +23,8 @@ SRCS = Particle.cpp \
 #  - test_NBodySystem.cpp   → pruebas de integración NBodySystem/Simulator
 TEST_SRCS = tests/catch_amalgamated.cpp \
             tests/test_Particle.cpp \
-            tests/test_NBodySystem.cpp
+            tests/test_NBodySystem.cpp \
+            tests/test_MetricsCalculator.cpp
 
 # Directorio de scripts Python
 SCRIPTS_DIR = scripts
@@ -79,10 +80,13 @@ plot: analysis
 	gnuplot $(SCRIPTS_DIR)/plot_energy.gnu
 	@echo "==> Generando gráficos de trayectorias..."
 	gnuplot $(SCRIPTS_DIR)/plot_trajectories.gnu
+	@echo "==> Generando gráfico de chunk analysis..."
+	gnuplot $(SCRIPTS_DIR)/plot_chunk.gnu
 	@echo "==> Gráficos listos:"
 	@echo "     - energy_plot.png"
 	@echo "     - trajectories_plot.png"
 	@echo "     - position_vs_time.png"
+	@echo "     - chunk_plot.png"
 
 # make clean: elimina binarios, datos generados y figuras
 clean:

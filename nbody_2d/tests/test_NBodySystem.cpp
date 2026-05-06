@@ -456,3 +456,110 @@ TEST_CASE("NBodySimulator: misma semilla produce resultados idénticos (reproduc
         REQUIRE(bA[i].getVY() == Approx(bB[i].getVY()).margin(1e-14));
     }
 }
+
+// ─────────────────────────────────────────────
+//  TEST SIM-1 · integrateEuler(syncType=1) vs serial
+// ─────────────────────────────────────────────
+// Verifica que la versión con `critical` produce las mismas posiciones
+// que la versión serial tras 10 pasos de integración.
+//
+// Sistema: N=5, seed=42, dt=0.01, steps=10
+//
+// La versión critical serializa el acceso a cada partícula, por lo que
+// debería ser numéricamente idéntica al serial (diferencia ≤ 1e-14).
+//
+// NOTA SOBRE LA TOLERANCIA:
+//   Ambas versiones ejecutan exactamente las mismas operaciones en la misma
+//   partícula, así que el resultado debe ser bit-a-bit igual.  El margen
+//   1e-14 es puramente defensivo.
+TEST_CASE("NBodySimulator SIM-1: integrateEuler(syncType=1 critical) == serial",
+          "[NBodySimulator][parallel][SIM-1]") {
+    const int    N     = 5;
+    const int    steps = 10;
+    const int    seed  = 42;
+    const double dt    = 0.01;
+
+    // ── Sistema serial (referencia) ──────────────
+    NBodySystem  sysSerial(1.0, 0.05);
+    sysSerial.randomSystem(N, seed);
+    NBodySimulator simSerial(&sysSerial, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysSerial.computeAccelerations();
+        simSerial.integrateEuler();         // versión serial sin OpenMP
+    }
+
+    // ── Sistema parallel critical ─────────────────
+    NBodySystem  sysPar(1.0, 0.05);
+    sysPar.randomSystem(N, seed);           // misma semilla
+    NBodySimulator simPar(&sysPar, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysPar.computeAccelerations();
+        simPar.integrateEuler(1);           // syncType=1 → critical
+    }
+
+    // ── Comparar resultados finales ───────────────
+    const auto& bS = sysSerial.getBodies();
+    const auto& bP = sysPar.getBodies();
+
+    for (int i = 0; i < N; ++i) {
+        INFO("SIM-1: Discrepancia en cuerpo " << i);
+        REQUIRE(bS[i].getX()  == Approx(bP[i].getX() ).margin(1e-14));
+        REQUIRE(bS[i].getY()  == Approx(bP[i].getY() ).margin(1e-14));
+        REQUIRE(bS[i].getVX() == Approx(bP[i].getVX()).margin(1e-14));
+        REQUIRE(bS[i].getVY() == Approx(bP[i].getVY()).margin(1e-14));
+    }
+}
+
+// ─────────────────────────────────────────────
+//  TEST SIM-2 · integrateEuler(syncType=2) vs serial
+// ─────────────────────────────────────────────
+// Verifica que la versión con `nowait` produce las mismas posiciones
+// que la versión serial tras 10 pasos de integración.
+//
+// Sistema: N=5, seed=42, dt=0.01, steps=10
+//
+// En la versión nowait cada thread actualiza partículas distintas (rango
+// del for), por lo que no hay carreras de datos y el resultado debe ser
+// idéntico al serial.
+TEST_CASE("NBodySimulator SIM-2: integrateEuler(syncType=2 nowait) == serial",
+          "[NBodySimulator][parallel][SIM-2]") {
+    const int    N     = 5;
+    const int    steps = 10;
+    const int    seed  = 42;
+    const double dt    = 0.01;
+
+    // ── Sistema serial (referencia) ──────────────
+    NBodySystem  sysSerial(1.0, 0.05);
+    sysSerial.randomSystem(N, seed);
+    NBodySimulator simSerial(&sysSerial, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysSerial.computeAccelerations();
+        simSerial.integrateEuler();
+    }
+
+    // ── Sistema parallel nowait ───────────────────
+    NBodySystem  sysPar(1.0, 0.05);
+    sysPar.randomSystem(N, seed);
+    NBodySimulator simPar(&sysPar, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysPar.computeAccelerations();
+        simPar.integrateEuler(2);           // syncType=2 → nowait
+    }
+
+    // ── Comparar resultados finales ───────────────
+    const auto& bS = sysSerial.getBodies();
+    const auto& bP = sysPar.getBodies();
+
+    for (int i = 0; i < N; ++i) {
+        INFO("SIM-2: Discrepancia en cuerpo " << i);
+        REQUIRE(bS[i].getX()  == Approx(bP[i].getX() ).margin(1e-14));
+        REQUIRE(bS[i].getY()  == Approx(bP[i].getY() ).margin(1e-14));
+        REQUIRE(bS[i].getVX() == Approx(bP[i].getVX()).margin(1e-14));
+        REQUIRE(bS[i].getVY() == Approx(bP[i].getVY()).margin(1e-14));
+    }
+}
+
