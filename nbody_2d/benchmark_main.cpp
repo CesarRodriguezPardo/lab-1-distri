@@ -63,5 +63,28 @@ int main() {
         });
     benchChunk.saveChunkResultsToFile("benchmark_results.dat");
 
+    // ─────────────────────────────────────────────────────────────
+    //  Módulo 4 — Full Simulation Benchmark (100 pasos)
+    //  Demuestra que el sistema evoluciona y mide el rendimiento real.
+    // ─────────────────────────────────────────────────────────────
+    std::cout << "\nEjecutando Full Simulation Benchmark (100 pasos por modo)...\n";
+    int stepsToSimulate = 100;
+    
+    auto runFullSim = [&](const std::string& label, int sim_t, int sync_t) {
+        std::cout << " -> " << label << "... ";
+        std::cout.flush();
+        auto start = std::chrono::high_resolution_clock::now();
+        for(int s = 0; s < stepsToSimulate; ++s) {
+            simulator.processBodies(dummyStream, sim_t, sync_t, 1, 0);
+        }
+        auto end = std::chrono::high_resolution_clock::now();
+        std::chrono::duration<double> diff = end - start;
+        std::cout << diff.count() << " s\n";
+    };
+
+    runFullSim("SERIAL  ", 0, 0);
+    runFullSim("PARALLEL", 1, 2); // nowait
+    runFullSim("TASKS   ", 2, 2);
+
     return 0;
 }

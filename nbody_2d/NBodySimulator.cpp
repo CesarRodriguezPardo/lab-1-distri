@@ -165,8 +165,12 @@ void NBodySimulator::processBodies(std::ostream &energyFile, int sim_type, int s
         system->computeAccelerations(); //obtengo las aceleraciones
         integrateEuler(); //muevo las particulas
         calculateEnergy(energyFile); //calculo la energía
-    } else {
+    } else if (sim_type == 1) {
         system->computeAccelerations(scheduleType, chunkSize);
+        integrateEuler(syncType); //muevo las particulas
+        calculateEnergy(energyFile, sim_type); //calculo la energía
+    } else if (sim_type == 2) {
+        system->computeAccelerationsTasks();
         integrateEuler(syncType); //muevo las particulas
         calculateEnergy(energyFile, sim_type); //calculo la energía
     }

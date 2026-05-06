@@ -103,6 +103,38 @@ void NBodySystem::computeAccelerations(int scheduleType, int chunkSize, bool ins
     }
 }
 
+void NBodySystem::computeAccelerationsTasks() {
+    int nBodies = bodies.size();
+
+    #pragma omp parallel
+    {
+        #pragma omp single
+        {
+            for (int i = 0; i < nBodies; ++i) {
+                #pragma omp task firstprivate(i)
+                {
+                    double totalAX = 0.0;
+                    double totalAY = 0.0;
+                    double xi = bodies[i].getX();
+                    double yi = bodies[i].getY();
+
+                    for (int j = 0; j < nBodies; ++j) {
+                        if (i == j) continue;
+                        double distanceX = bodies[j].getX() - xi;
+                        double distanceY = bodies[j].getY() - yi;
+                        double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
+                        double r = sqrt(rSquared);
+                        double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
+                        totalAX += ScalarForce * distanceX;
+                        totalAY += ScalarForce * distanceY;
+                    }
+                    bodies[i].setAcceleration(totalAX, totalAY);
+                }
+            }
+        }
+    }
+}
+
 
 const std::vector <Particle>& NBodySystem::getBodies() const {
     return bodies;
