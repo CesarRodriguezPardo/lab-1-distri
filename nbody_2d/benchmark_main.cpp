@@ -1,8 +1,10 @@
 #include <iostream>
 #include <vector>
+#include <sstream>
 #include "NBodySystem.h"
 #include "MetricsCalculator.h"
 #include "Benchmark.h"
+#include "NBodySimulator.h"
 
 int main() {
     std::cout << "Inicializando sistema para Benchmark (500 particulas)...\n";
@@ -24,18 +26,28 @@ int main() {
     std::cout << " - Min Distance: " << metrics.getMinDistance() << "\n";
     std::cout << " - RMS Radius: " << metrics.getRmsRadius() << "\n";
 
-    std::cout << "\nEjecutando Benchmark de computeAccelerations (1 a 4 hilos, 20 repeticiones)...\n";
-    Benchmark bench(20); // 20 repeticiones por lote
-    bench.runScalingAnalysis(4, [&](bool inside_parallel) {
-        #pragma omp single
-        system.zeroAccelerations();
-        system.computeAccelerations(1, 0, inside_parallel); // scheduleType=1 (static)
-    }, true);
-    bench.saveResultsToFile("scaling_analysis.dat");
+    std::cout << "\nEjecutando Scaling Analysis (NBodySimulator)...\n";
+    NBodySimulator simulator(&system, 0.01);
+    std::stringstream dummyStream;
+
+    std::cout << " -> Modo PARALELO (omp for, nowait, static)\n";
+    Benchmark benchParallel(20);
+    benchParallel.runScalingAnalysis(4, [&](bool /*inside_parallel*/) {
+        // sim_type=1 (parallel), syncType=2 (nowait), schedule=1 (static)
+        simulator.processBodies(dummyStream, 1, 2, 1, 0); 
+    }, false); // El simulador maneja sus propias regiones paralelas
+    benchParallel.saveResultsToFile("scaling_analysis.dat");
+
+    std::cout << "\n -> Modo TAREAS (omp task)\n";
+    Benchmark benchTasks(20);
+    benchTasks.runScalingAnalysis(4, [&](bool /*inside_parallel*/) {
+        // sim_type=2 (tasks)
+        simulator.processBodies(dummyStream, 2, 2, 1, 0);
+    }, false);
+    benchTasks.saveResultsToFile("scaling_tasks.dat");
 
     // ─────────────────────────────────────────────────────────────
     //  Módulo 3 — Benchmark: Tiempo vs. Chunk × Schedule
-    //  Genera benchmark_results.dat con 3 schedules × 5 chunk sizes
     // ─────────────────────────────────────────────────────────────
     std::cout << "\nEjecutando Chunk-Schedule Analysis (4 hilos fijos, 20 repeticiones)...\n";
 
@@ -46,12 +58,8 @@ int main() {
     Benchmark benchChunk(20);
     benchChunk.runChunkAnalysis(fixedThreads, chunkSizes, schedules,
         [&](int sched, int chunk) {
-            #pragma omp parallel num_threads(fixedThreads)
-            {
-                #pragma omp single
-                system.zeroAccelerations();
-                system.computeAccelerations(sched, chunk, true);
-            }
+            // Benchmarkamos el paso completo usando el simulador
+            simulator.processBodies(dummyStream, 1, 2, sched, chunk);
         });
     benchChunk.saveChunkResultsToFile("benchmark_results.dat");
 

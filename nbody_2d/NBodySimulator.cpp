@@ -46,7 +46,7 @@ void NBodySimulator::integrateEuler(int syncType) {
 }
 
 //Ajustar para utilizar un collapse(2), ver posibilidad de utilizar critics o tasks
-void NBodySimulator::calculateEnergy(std::ofstream &energyFile){
+void NBodySimulator::calculateEnergy(std::ostream &energyFile){
     auto& particles = system->getParticles();
     int n = particles.size();
     double kineticEnergy = 0.0;
@@ -82,7 +82,7 @@ void NBodySimulator::calculateEnergy(std::ofstream &energyFile){
             << totalEnergy << "\n";
 }
 
-void NBodySimulator::calculateEnergy(std::ofstream &energyFile, int sim_type) {
+void NBodySimulator::calculateEnergy(std::ostream &energyFile, int sim_type) {
     auto& particles = system->getParticles();
     int n = particles.size();
     double kineticEnergy = 0.0;
@@ -160,7 +160,7 @@ void NBodySimulator::calculateEnergy(std::ofstream &energyFile, int sim_type) {
     }
 }
 
-void NBodySimulator::processBodies(std::ofstream &energyFile, int sim_type, int syncType ,int scheduleType, int chunkSize) {
+void NBodySimulator::processBodies(std::ostream &energyFile, int sim_type, int syncType ,int scheduleType, int chunkSize) {
     if (sim_type == 0) {
         system->computeAccelerations(); //obtengo las aceleraciones
         integrateEuler(); //muevo las particulas
