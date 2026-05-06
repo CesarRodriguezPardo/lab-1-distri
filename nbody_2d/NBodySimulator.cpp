@@ -18,10 +18,10 @@ void NBodySimulator::integrateEuler(int syncType) {
     auto& particles = system->getParticles();
     int n = particles.size();
 
-    switch (syncType)
-    {    
+    switch (syncType) {
     case 1: // critical
-        for (int i = 0; i < n; ++i){
+        #pragma omp parallel for schedule(static)
+        for (int i = 0; i < n; ++i) {
             #pragma omp critical
             {
                 particles[i].kick(time_step);
@@ -31,21 +31,45 @@ void NBodySimulator::integrateEuler(int syncType) {
         break;
     case 2: // nowait
         #pragma omp parallel
-        #pragma omp for nowait
-         for (int i = 0; i < n; ++i){
+        {
+            #pragma omp for nowait schedule(static)
+            for (int i = 0; i < n; ++i) {
+                particles[i].kick(time_step);
+                particles[i].drift(time_step);
+            }
+        }
+        break;
+    default:
+        integrateEuler();
+        break;
+    }
+}
+
+
+void NBodySimulator::integrateEuler(int syncType, bool use_barrier) {
+    auto& particles = system->getParticles();
+    int n = particles.size();
+
+    if (syncType != 2) {
+        integrateEuler(syncType);
+        return;
+    }
+
+    #pragma omp parallel
+    {
+        #pragma omp for nowait schedule(static)
+        for (int i = 0; i < n; ++i) {
             particles[i].kick(time_step);
             particles[i].drift(time_step);
         }
 
-        break;
-    
-    default:
-        break;
+        if (use_barrier) {
+            #pragma omp barrier
+        }
     }
-    
 }
 
-//Ajustar para utilizar un collapse(2), ver posibilidad de utilizar critics o tasks
+
 void NBodySimulator::calculateEnergy(std::ostream &energyFile){
     auto& particles = system->getParticles();
     int n = particles.size();
@@ -61,7 +85,6 @@ void NBodySimulator::calculateEnergy(std::ostream &energyFile){
         double xi = particles[i].getX();
         double yi = particles[i].getY();
 
-            #pragma omp atomic
             kineticEnergy += 0.5 * m * (vx * vx + vy * vy);
         for (int j = i + 1; j < n; ++j) {
             double dx = particles[j].getX() - xi;
@@ -70,8 +93,7 @@ void NBodySimulator::calculateEnergy(std::ostream &energyFile){
             // Usamos el mismo suavizado 'eps' que en las aceleraciones
             
             double r = sqrt(dx * dx + dy * dy + eps * eps);
-                #pragma omp atomic
-                potentialEnergy -= (G * m * particles[j].getMass()) / r;
+            potentialEnergy -= (G * m * particles[j].getMass()) / r;
         }
     }
     double totalEnergy = kineticEnergy + potentialEnergy;
@@ -82,17 +104,30 @@ void NBodySimulator::calculateEnergy(std::ostream &energyFile){
             << totalEnergy << "\n";
 }
 
-void NBodySimulator::calculateEnergy(std::ostream &energyFile, int sim_type) {
+omp_sched_t getScheduleFromSimInt(int type) {
+    switch (type) {
+        case 1: return omp_sched_static;
+        case 2: return omp_sched_dynamic;
+        case 3: return omp_sched_guided;
+        case 4: return omp_sched_auto;
+        default: return omp_sched_static; // Default seguro
+    }
+}
+
+void NBodySimulator::calculateEnergy(std::ostream &energyFile, int method, int scheduleType, int chunkSize) {
     auto& particles = system->getParticles();
     int n = particles.size();
     double kineticEnergy = 0.0;
     double potentialEnergy = 0.0;
+    double totalEnergy = 0.0;
     double G = system->getG_const();
     double eps = system->getEps();
 
-    if (sim_type == 1) {
-        // Parallel for version
-        #pragma omp parallel for reduction(+:kineticEnergy, potentialEnergy) schedule(static)
+    omp_set_schedule(getScheduleFromSimInt(scheduleType), chunkSize);
+
+    if (method == 0) {
+        // Paralelizacion con reducción
+        #pragma omp parallel for reduction(+:kineticEnergy, potentialEnergy) schedule(runtime)
         for (int i = 0; i < n; ++i){
             double m = particles[i].getMass();
             double vx = particles[i].getVX();
@@ -111,72 +146,125 @@ void NBodySimulator::calculateEnergy(std::ostream &energyFile, int sim_type) {
                 potentialEnergy -= (G * m * particles[j].getMass()) / r;
             }
         }
-        double totalEnergy = kineticEnergy + potentialEnergy;
+        totalEnergy = kineticEnergy + potentialEnergy;
 
-        energyFile << std::fixed << std::setprecision(8) 
-                << kineticEnergy << " \t " 
-                << potentialEnergy << " \t " 
-                << totalEnergy << "\n";
-    } else if (sim_type == 2) {
-        // Task-based version
+    
+    } else if (method == 1) {
+        // Paralelizacion con atómicos
+        #pragma omp parallel for schedule(runtime) shared(kineticEnergy, potentialEnergy)
+        for (int i = 0; i < n; ++i){
+            double m = particles[i].getMass();
+            double vx = particles[i].getVX();
+            double vy = particles[i].getVY();
+            double xi = particles[i].getX();
+            double yi = particles[i].getY();
+            #pragma omp atomic
+            kineticEnergy += 0.5 * m * (vx * vx + vy * vy);
+            for (int j = i + 1; j < n; ++j) {
+                double dx = particles[j].getX() - xi;
+                double dy = particles[j].getY() - yi;
 
-        #pragma omp parallel
-        {
-            #pragma omp single
-            {
-                for (int i = 0; i < n; ++i){
-                    #pragma omp task firstprivate(i) shared(kineticEnergy, potentialEnergy)
-                    {
-                        double m = particles[i].getMass();
-                        double vx = particles[i].getVX();
-                        double vy = particles[i].getVY();
-                        double xi = particles[i].getX();
-                        double yi = particles[i].getY();
-
-                        {
-                            #pragma omp atomic
-                            kineticEnergy += 0.5 * m * (vx * vx + vy * vy);
-                        }
-                        for (int j = i + 1; j < n; ++j) {
-                            double dx = particles[j].getX() - xi;
-                            double dy = particles[j].getY() - yi;
-                            
-                            double r = sqrt(dx * dx + dy * dy + eps * eps);
-                            {
-                                #pragma omp atomic
-                                potentialEnergy -= (G * m * particles[j].getMass()) / r;
-                            }
-                        }
-                    }
-                }
+                double r = sqrt(dx * dx + dy * dy + eps * eps);
+                #pragma omp atomic
+                potentialEnergy -= (G * m * particles[j].getMass()) / r;
             }
         }
-        double totalEnergy = kineticEnergy + potentialEnergy;
-
-        energyFile << std::fixed << std::setprecision(8) 
+        totalEnergy = kineticEnergy + potentialEnergy;
+        
+    }
+    energyFile << std::fixed << std::setprecision(8) 
                 << kineticEnergy << " \t " 
                 << potentialEnergy << " \t " 
                 << totalEnergy << "\n";
-    }
 }
 
-void NBodySimulator::processBodies(std::ostream &energyFile, int sim_type, int syncType ,int scheduleType, int chunkSize) {
-    if (sim_type == 0) {
-        system->computeAccelerations(); //obtengo las aceleraciones
-        integrateEuler(); //muevo las particulas
-        calculateEnergy(energyFile); //calculo la energía
-    } else if (sim_type == 1) {
-        system->computeAccelerations(scheduleType, chunkSize);
-        integrateEuler(syncType); //muevo las particulas
-        calculateEnergy(energyFile, sim_type); //calculo la energía
-    } else if (sim_type == 2) {
-        system->computeAccelerationsTasks();
-        integrateEuler(syncType); //muevo las particulas
-        calculateEnergy(energyFile, sim_type); //calculo la energía
+
+void NBodySimulator::calculateEnergy(std::ostream &energyFile, bool use_private) {
+    auto& particles = system->getParticles();
+    int n = particles.size();
+    double kineticEnergy = 0.0;
+    double potentialEnergy = 0.0;
+    double G = system->getG_const();
+    double eps = system->getEps();
+    
+    
+    if(use_private) {
+        double r, dx, dy, m, vx, vy, xi, yi;
+        // Paralelizacion con atomicos y con variables privadas
+        #pragma omp parallel for schedule(dynamic, 16) private(r, dx, dy, m, vx, vy, xi, yi) reduction(+:kineticEnergy, potentialEnergy)
+        for (int i = 0; i < n; ++i){
+            m = particles[i].getMass();
+            vx = particles[i].getVX();
+            vy = particles[i].getVY();
+            xi = particles[i].getX();
+            yi = particles[i].getY();
+            #pragma omp atomic
+            kineticEnergy += 0.5 * m * (vx * vx + vy * vy);
+            for (int j = i + 1; j < n; ++j) {
+                dx = particles[j].getX() - xi;
+                dy = particles[j].getY() - yi;
+
+                r = sqrt(dx * dx + dy * dy + eps * eps);
+                #pragma omp atomic
+                potentialEnergy -= (G * m * particles[j].getMass()) / r;
+            }
+        }
+    } else {
+        // Paralelizacion con atomicos y compartiendo variables
+         #pragma omp parallel for schedule(dynamic, 16) shared(kineticEnergy, potentialEnergy)
+         for (int i = 0; i < n; ++i){
+            double m = particles[i].getMass();
+            double vx = particles[i].getVX();
+            double vy = particles[i].getVY();
+            double xi = particles[i].getX();
+            double yi = particles[i].getY();
+            #pragma omp atomic
+            kineticEnergy += 0.5 * m * (vx * vx + vy * vy);
+            for (int j = i + 1; j < n; ++j) {
+                double dx = particles[j].getX() - xi;
+                double dy = particles[j].getY() - yi;
+
+                double r = sqrt(dx * dx + dy * dy + eps * eps);
+                #pragma omp atomic
+                potentialEnergy -= (G * m * particles[j].getMass()) / r;
+            }
+        }
     }
+    double totalEnergy = kineticEnergy + potentialEnergy;
+
+    energyFile << std::fixed << std::setprecision(8) 
+            << kineticEnergy << " \t " 
+            << potentialEnergy << " \t " 
+            << totalEnergy << "\n";
 }
 
-void NBodySimulator::simulate(int steps, std::string energyFilename, std::string trajectoryFilename, int sim_type, int syncType, int scheduleType, int chunkSize) {
+
+void NBodySimulator::processBodies(std::ostream &energyFile) {
+    system->computeAccelerations(); //obtengo las aceleraciones
+    integrateEuler(); //muevo las particulas
+    calculateEnergy(energyFile); //calculo la energía
+}
+
+
+//Version con parallel for
+//Importante si se quiere comparar con el task usar el method = 1
+void NBodySimulator::processBodies(std::ostream &energyFile, int method, int syncType ,int scheduleType, int chunkSize, bool use_barrier) {
+    system->computeAccelerations(scheduleType, chunkSize);
+    if(syncType == 2) integrateEuler(syncType,use_barrier); //muevo las particulas
+    else integrateEuler(syncType);
+    calculateEnergy(energyFile, method); //calculo la energía
+}
+
+
+//utiliza metodo atomico para calcular la energía y el método de tareas para calcular las aceleraciones
+void NBodySimulator::processBodies(std::ostream &energyFile, int taskType,int syncType) {
+    system->computeAccelerations(taskType);
+    integrateEuler(syncType); //muevo las particulas
+    calculateEnergy(energyFile, 1); //calculo la energía
+}
+
+
+void NBodySimulator::simulate(int steps, std::string energyFilename, std::string trajectoryFilename, int sim_type, int syncType, int scheduleType, int chunkSize, int method, int taskType, bool use_barrier) {
     //creacion del archivo de energias.dat
     std::ofstream energyFile;
 
@@ -200,10 +288,39 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
 
     auto start = std::chrono::high_resolution_clock::now();
 
-    for (int step = 0; step < steps; ++step){
-        this->processBodies(energyFile, sim_type, syncType, scheduleType, chunkSize);
-        system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
-        std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
+
+    // Simulacion basada en parametros de entrada, se pueden elegir entre 3 tipos de simulacion: 
+    // 0 = serial, 1 = paralelo con for, 2 = paralelo con tareas
+    if(sim_type == 0){
+        for(int step = 0; step < steps; ++step){
+            this->processBodies(energyFile);
+            system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
+            if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
+                std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
+            }
+            std::cout.flush();
+        }
+    }else {
+        if(taskType == -1){
+            for (int step = 0; step < steps; ++step){
+                this->processBodies(energyFile, method, syncType, scheduleType, chunkSize, use_barrier);
+                system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
+                if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
+                    std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
+                }
+                std::cout.flush();
+            }
+
+        } else{
+            for (int step = 0; step < steps; ++step){
+                this->processBodies(energyFile, taskType, syncType);
+                system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
+                if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
+                    std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
+                }
+                std::cout.flush();
+            }
+        }
     }
 
     energyFile.close();

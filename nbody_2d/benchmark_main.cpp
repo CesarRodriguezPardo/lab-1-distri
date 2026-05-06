@@ -1,6 +1,7 @@
 #include <iostream>
 #include <vector>
 #include <sstream>
+#include <chrono>
 #include "NBodySystem.h"
 #include "MetricsCalculator.h"
 #include "Benchmark.h"
@@ -28,13 +29,13 @@ int main() {
 
     std::cout << "\nEjecutando Scaling Analysis (NBodySimulator)...\n";
     NBodySimulator simulator(&system, 0.01);
-    std::stringstream dummyStream;
+    std::ostringstream dummyStream;
 
     std::cout << " -> Modo PARALELO (omp for, nowait, static)\n";
     Benchmark benchParallel(20);
     benchParallel.runScalingAnalysis(4, [&](bool /*inside_parallel*/) {
         // sim_type=1 (parallel), syncType=2 (nowait), schedule=1 (static)
-        simulator.processBodies(dummyStream, 1, 2, 1, 0); 
+        simulator.processBodies(static_cast<std::ostream&>(dummyStream), 1, 2, 1, 0, false); 
     }, false); // El simulador maneja sus propias regiones paralelas
     benchParallel.saveResultsToFile("scaling_analysis.dat");
 
@@ -42,7 +43,7 @@ int main() {
     Benchmark benchTasks(20);
     benchTasks.runScalingAnalysis(4, [&](bool /*inside_parallel*/) {
         // sim_type=2 (tasks)
-        simulator.processBodies(dummyStream, 2, 2, 1, 0);
+        simulator.processBodies(static_cast<std::ostream&>(dummyStream), 0, 2);
     }, false);
     benchTasks.saveResultsToFile("scaling_tasks.dat");
 
@@ -59,7 +60,7 @@ int main() {
     benchChunk.runChunkAnalysis(fixedThreads, chunkSizes, schedules,
         [&](int sched, int chunk) {
             // Benchmarkamos el paso completo usando el simulador
-            simulator.processBodies(dummyStream, 1, 2, sched, chunk);
+            simulator.processBodies(static_cast<std::ostream&>(dummyStream), 1, 2, sched, chunk, false);
         });
     benchChunk.saveChunkResultsToFile("benchmark_results.dat");
 
@@ -75,7 +76,11 @@ int main() {
         std::cout.flush();
         auto start = std::chrono::high_resolution_clock::now();
         for(int s = 0; s < stepsToSimulate; ++s) {
-            simulator.processBodies(dummyStream, sim_t, sync_t, 1, 0);
+            if (sim_t == 2) {
+                simulator.processBodies(static_cast<std::ostream&>(dummyStream), 0, sync_t);
+            } else {
+                simulator.processBodies(static_cast<std::ostream&>(dummyStream), 1, sync_t, 1, 0, false);
+            }
         }
         auto end = std::chrono::high_resolution_clock::now();
         std::chrono::duration<double> diff = end - start;

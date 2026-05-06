@@ -56,80 +56,61 @@ omp_sched_t getScheduleFromInt(int type) {
     }
 }
 
-void NBodySystem::computeAccelerations(int scheduleType, int chunkSize, bool inside_parallel) {
+void NBodySystem::computeAccelerations(int scheduleType, int chunkSize) {
     int nBodies = bodies.size();
     omp_set_schedule(getScheduleFromInt(scheduleType), chunkSize);
 
-    if (inside_parallel) {
-        #pragma omp for schedule(runtime)
-        for (int i = 0; i < nBodies; ++i) {
-            double totalAX = 0.0;
-            double totalAY = 0.0;
-            double xi = bodies[i].getX();
-            double yi = bodies[i].getY();
+    #pragma omp for schedule(runtime)
+    for (int i = 0; i < nBodies; ++i) {
+        double totalAX = 0.0;
+        double totalAY = 0.0;
+        double xi = bodies[i].getX();
+        double yi = bodies[i].getY();
 
-            for (int j = 0; j < nBodies; ++j) {
-                if (i == j) continue;
-                double distanceX = bodies[j].getX() - xi;
-                double distanceY = bodies[j].getY() - yi;
-                double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
-                double r = sqrt(rSquared);
-                double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
-                totalAX += ScalarForce * distanceX;
-                totalAY += ScalarForce * distanceY;
-            }
-            bodies[i].setAcceleration(totalAX, totalAY);
+        for (int j = 0; j < nBodies; ++j) {
+            if (i == j) continue;
+            double distanceX = bodies[j].getX() - xi;
+            double distanceY = bodies[j].getY() - yi;
+            double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
+            double r = sqrt(rSquared);
+            double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
+            totalAX += ScalarForce * distanceX;
+            totalAY += ScalarForce * distanceY;
         }
-    } else {
-        #pragma omp parallel for schedule(runtime)
-        for (int i = 0; i < nBodies; ++i) {
-            double totalAX = 0.0;
-            double totalAY = 0.0;
-            double xi = bodies[i].getX();
-            double yi = bodies[i].getY();
-
-            for (int j = 0; j < nBodies; ++j) {
-                if (i == j) continue;
-                double distanceX = bodies[j].getX() - xi;
-                double distanceY = bodies[j].getY() - yi;
-                double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
-                double r = sqrt(rSquared);
-                double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
-                totalAX += ScalarForce * distanceX;
-                totalAY += ScalarForce * distanceY;
-            }
-            bodies[i].setAcceleration(totalAX, totalAY);
-        }
+        bodies[i].setAcceleration(totalAX, totalAY);
     }
 }
 
-void NBodySystem::computeAccelerationsTasks() {
+void NBodySystem::computeAccelerations(int taskType) {
     int nBodies = bodies.size();
-
-    #pragma omp parallel
-    {
-        #pragma omp single
+    if (taskType == 0) {
+        // Tareas sin dependencias explícitas
+        #pragma omp parallel
         {
-            for (int i = 0; i < nBodies; ++i) {
-                #pragma omp task firstprivate(i)
-                {
-                    double totalAX = 0.0;
-                    double totalAY = 0.0;
-                    double xi = bodies[i].getX();
-                    double yi = bodies[i].getY();
+            #pragma omp single // Solo un hilo crea las tareas
+            {
+                for (int i = 0; i < nBodies; ++i) {
+                    #pragma omp task firstprivate(i) // Se dividen las tareas por cada partícula y se comparte el indice par utilizarlo dentro del for
+                    {
+                        double totalAX = 0.0;
+                        double totalAY = 0.0;
+                        double xi = bodies[i].getX();
+                        double yi = bodies[i].getY();
 
-                    for (int j = 0; j < nBodies; ++j) {
-                        if (i == j) continue;
-                        double distanceX = bodies[j].getX() - xi;
-                        double distanceY = bodies[j].getY() - yi;
-                        double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
-                        double r = sqrt(rSquared);
-                        double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
-                        totalAX += ScalarForce * distanceX;
-                        totalAY += ScalarForce * distanceY;
+                        for (int j = 0; j < nBodies; ++j) {
+                            if (i == j) continue;
+                            double distanceX = bodies[j].getX() - xi;
+                            double distanceY = bodies[j].getY() - yi;
+                            double rSquared = distanceX * distanceX + distanceY * distanceY + eps * eps;
+                            double r = sqrt(rSquared);
+                            double ScalarForce = (G_const * bodies[j].getMass()) / (rSquared * r);
+                            totalAX += ScalarForce * distanceX;
+                            totalAY += ScalarForce * distanceY;
+                        }
+                        bodies[i].setAcceleration(totalAX, totalAY);
                     }
-                    bodies[i].setAcceleration(totalAX, totalAY);
                 }
+                #pragma omp taskwait // Espera a que todas las tareas terminen antes de salir de la región paralela
             }
         }
     }
