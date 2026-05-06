@@ -503,3 +503,97 @@ TEST_CASE("NBodySystem: zeroAccelerations en sistema vacío no falla",
     REQUIRE_NOTHROW(sys.zeroAccelerations());
 }
 
+// ─────────────────────────────────────────────
+//  SECCIÓN: integrateEuler paralelo vs serial
+// ─────────────────────────────────────────────
+// kick() y drift() de cada partícula son independientes entre sí (no hay
+// comunicación entre partículas durante la integración). Por lo tanto, las
+// versiones paralelas deben producir resultados bit-a-bit idénticos a la
+// versión serial, independientemente del número de hilos o del schedule.
+//
+// SIM-1 verifica syncType=1 (critical) y SIM-2 verifica syncType=2 (nowait).
+//
+// NOTA SOBRE TOLERANCIA:
+// Las operaciones kick/drift son sumas de punto flotante sin acumulación de
+// errores entre hilos (cada partícula es independiente). Por eso usamos
+// margin(1e-14): debe ser bit-a-bit idéntico.
+
+TEST_CASE("NBodySimulator: integrateEuler(critical) produce mismo resultado que serial",
+          "[NBodySimulator][parallel][syncType1]") {
+    const int    N     = 5;
+    const int    steps = 10;
+    const int    seed  = 42;
+    const double dt    = 0.01;
+
+    // ── Sistema serial (referencia) ───────────────────────────
+    NBodySystem  sysSerial(1.0, 0.05);
+    sysSerial.randomSystem(N, seed);
+    NBodySimulator simSerial(&sysSerial, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysSerial.computeAccelerations();
+        simSerial.integrateEuler();          // serial
+    }
+
+    // ── Sistema con critical ──────────────────────────────────
+    NBodySystem  sysCritical(1.0, 0.05);
+    sysCritical.randomSystem(N, seed);       // misma semilla
+    NBodySimulator simCritical(&sysCritical, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysCritical.computeAccelerations();
+        simCritical.integrateEuler(1);       // critical
+    }
+
+    // ── Comparar ──────────────────────────────────────────────
+    const auto& bS = sysSerial.getBodies();
+    const auto& bC = sysCritical.getBodies();
+
+    for (int i = 0; i < N; ++i) {
+        INFO("Discrepancia en cuerpo " << i);
+        REQUIRE(bC[i].getX()  == Approx(bS[i].getX() ).margin(1e-14));
+        REQUIRE(bC[i].getY()  == Approx(bS[i].getY() ).margin(1e-14));
+        REQUIRE(bC[i].getVX() == Approx(bS[i].getVX()).margin(1e-14));
+        REQUIRE(bC[i].getVY() == Approx(bS[i].getVY()).margin(1e-14));
+    }
+}
+
+TEST_CASE("NBodySimulator: integrateEuler(nowait) produce mismo resultado que serial",
+          "[NBodySimulator][parallel][syncType2]") {
+    const int    N     = 5;
+    const int    steps = 10;
+    const int    seed  = 42;
+    const double dt    = 0.01;
+
+    // ── Sistema serial (referencia) ───────────────────────────
+    NBodySystem  sysSerial(1.0, 0.05);
+    sysSerial.randomSystem(N, seed);
+    NBodySimulator simSerial(&sysSerial, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysSerial.computeAccelerations();
+        simSerial.integrateEuler();          // serial
+    }
+
+    // ── Sistema con nowait ────────────────────────────────────
+    NBodySystem  sysNowait(1.0, 0.05);
+    sysNowait.randomSystem(N, seed);         // misma semilla
+    NBodySimulator simNowait(&sysNowait, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysNowait.computeAccelerations();
+        simNowait.integrateEuler(2);         // nowait
+    }
+
+    // ── Comparar ──────────────────────────────────────────────
+    const auto& bS = sysSerial.getBodies();
+    const auto& bN = sysNowait.getBodies();
+
+    for (int i = 0; i < N; ++i) {
+        INFO("Discrepancia en cuerpo " << i);
+        REQUIRE(bN[i].getX()  == Approx(bS[i].getX() ).margin(1e-14));
+        REQUIRE(bN[i].getY()  == Approx(bS[i].getY() ).margin(1e-14));
+        REQUIRE(bN[i].getVX() == Approx(bS[i].getVX()).margin(1e-14));
+        REQUIRE(bN[i].getVY() == Approx(bS[i].getVY()).margin(1e-14));
+    }
+}

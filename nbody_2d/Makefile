@@ -2,7 +2,7 @@
 OMPFLAGS = -fopenmp
 
 # Compilador y flags base
-CXX      = g++
+CXX      = g++-15
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 
 # ─────────────────────────────────────────────────────────────
@@ -22,7 +22,8 @@ SRCS = Particle.cpp \
 #  - test_NBodySystem.cpp   → pruebas de integración NBodySystem/Simulator
 TEST_SRCS = tests/catch_amalgamated.cpp \
             tests/test_Particle.cpp \
-            tests/test_NBodySystem.cpp
+            tests/test_NBodySystem.cpp \
+            tests/test_MetricsCalculator.cpp
 
 # Directorio de scripts Gnuplot
 SCRIPTS_DIR = scripts
