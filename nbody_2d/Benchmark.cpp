@@ -158,3 +158,114 @@ void Benchmark::saveResultsToFile(const std::string& filename) {
         std::cerr << "Error: No se pudo abrir el archivo " << filename << " para guardar resultados de benchmark.\n";
     }
 }
+
+// ─────────────────────────────────────────────────────────────
+//  runExperimentSimple
+//  Mide el tiempo de 'func' (sin argumento bool) con el mismo
+//  esquema de lotes que runExperiment, pero sin fork-join externo.
+// ─────────────────────────────────────────────────────────────
+void Benchmark::runExperimentSimple(const std::function<void()>& func,
+                                    double& avgTime,
+                                    double& stdDevTime) {
+    int numBatches   = 5;
+    int repsPerBatch = numRepetitions;
+
+    std::vector<double> batchTimes(numBatches);
+    double sumTimes = 0.0;
+
+    // Warm-up
+    for (int w = 0; w < 3; ++w) func();
+
+    for (int b = 0; b < numBatches; ++b) {
+        double start_time = omp_get_wtime();
+        for (int i = 0; i < repsPerBatch; ++i) func();
+        double end_time = omp_get_wtime();
+        batchTimes[b] = (end_time - start_time) / repsPerBatch;
+        sumTimes      += batchTimes[b];
+    }
+
+    avgTime = sumTimes / numBatches;
+
+    double sumSqDiff = 0.0;
+    for (int b = 0; b < numBatches; ++b) {
+        double diff = batchTimes[b] - avgTime;
+        sumSqDiff += diff * diff;
+    }
+    stdDevTime = (numBatches > 1) ? std::sqrt(sumSqDiff / (numBatches - 1)) : 0.0;
+}
+
+// ─────────────────────────────────────────────────────────────
+//  runChunkAnalysis
+//  Itera sobre schedules × chunkSizes con hilos fijos y llena
+//  chunkResults.
+// ─────────────────────────────────────────────────────────────
+void Benchmark::runChunkAnalysis(int numThreads,
+                                 std::vector<int> chunkSizes,
+                                 std::vector<int> schedules,
+                                 const std::function<void(int, int)>& func) {
+    omp_set_num_threads(numThreads);
+    chunkResults.clear();
+
+    auto scheduleName = [](int s) -> const char* {
+        switch (s) {
+            case 1: return "static";
+            case 2: return "dynamic";
+            case 3: return "guided";
+            default: return "unknown";
+        }
+    };
+
+    for (int sched : schedules) {
+        for (int chunk : chunkSizes) {
+            double avg = 0.0, stddev = 0.0;
+
+            int s = sched, c = chunk;
+            runExperimentSimple([&]() { func(s, c); }, avg, stddev);
+
+            ChunkResult cr;
+            cr.scheduleType = sched;
+            cr.chunkSize    = chunk;
+            cr.avgTime      = avg;
+            cr.stdDevTime   = stddev;
+            chunkResults.push_back(cr);
+
+            std::cout << "Schedule: " << scheduleName(sched)
+                      << " | Chunk: "   << chunk
+                      << " | Time: "    << avg
+                      << "s (+-"        << stddev << ")\n";
+        }
+    }
+}
+
+// ─────────────────────────────────────────────────────────────
+//  saveChunkResultsToFile
+//  Formato:  Schedule ChunkSize AvgTime StdDevTime
+// ─────────────────────────────────────────────────────────────
+void Benchmark::saveChunkResultsToFile(const std::string& filename) {
+    std::ofstream out(filename);
+    if (!out.is_open()) {
+        std::cerr << "Error: No se pudo abrir el archivo " << filename
+                  << " para guardar resultados de chunk analysis.\n";
+        return;
+    }
+
+    auto scheduleName = [](int s) -> const char* {
+        switch (s) {
+            case 1: return "static";
+            case 2: return "dynamic";
+            case 3: return "guided";
+            default: return "unknown";
+        }
+    };
+
+    out << "Schedule ChunkSize AvgTime StdDevTime\n";
+    for (const auto& cr : chunkResults) {
+        out << std::left  << std::setw(8) << scheduleName(cr.scheduleType) << " "
+            << std::right << std::setw(9) << cr.chunkSize                  << " "
+            << std::fixed << std::setprecision(8)
+            << cr.avgTime    << " "
+            << cr.stdDevTime << "\n";
+    }
+    out.close();
+    std::cout << "Chunk results guardados en: " << filename << "\n";
+}

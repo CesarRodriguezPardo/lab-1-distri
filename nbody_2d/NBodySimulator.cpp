@@ -119,8 +119,6 @@ void NBodySimulator::calculateEnergy(std::ofstream &energyFile, int sim_type) {
                 << totalEnergy << "\n";
     } else if (sim_type == 2) {
         // Task-based version
-        double localKineticEnergy = 0.0;
-        double localPotentialEnergy = 0.0;
 
         #pragma omp parallel
         {

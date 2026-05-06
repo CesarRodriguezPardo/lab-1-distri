@@ -140,10 +140,9 @@ void MetricsCalculator::calculateFinalStateLastprivate() {
     double sumSqDist = 0.0;
     double totalMass = 0.0;
     
-    double last_processed_x = 0;
-    double last_processed_y = 0;
     
-    #pragma omp parallel for reduction(+:sumSqDist, totalMass) lastprivate(last_processed_x, last_processed_y)
+    
+    #pragma omp parallel for reduction(+:sumSqDist, totalMass)
     for(int i = 0; i < n; ++i) {
         double m = bodies[i].getMass();
         double dx = bodies[i].getX() - cmX;
@@ -152,9 +151,7 @@ void MetricsCalculator::calculateFinalStateLastprivate() {
         sumSqDist += m * (dx * dx + dy * dy);
         totalMass += m;
         
-        // El último thread que ejecute la última iteración guardará estos valores
-        last_processed_x = bodies[i].getX();
-        last_processed_y = bodies[i].getY();
+        // El último thread que ejecute la última iteración podría guardar valores si fuera necesario
     }
     
     if (totalMass > 0) {
