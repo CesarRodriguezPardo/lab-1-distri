@@ -18,8 +18,8 @@ class NBodySystem {
         void addParticle(const Particle& p);
         void zeroAccelerations();
         void computeAccelerations();
-        void computeAccelerations(int scheduleType, int chunkSize, bool inside_parallel = false);
-        void computeAccelerationsTasks();
+        void computeAccelerations(int scheduleType, int chunkSize);
+        void computeAccelerations(int taskType);
         const std::vector<Particle>& getBodies() const;
         int getCount() const;
         void randomSystem(int amount, int seed = 1);

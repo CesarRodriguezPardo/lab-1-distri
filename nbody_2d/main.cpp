@@ -29,7 +29,10 @@ static void runCase(int caseId,
                     int sim_type,
                     int syncType,
                     int scheduleType,
-                    int chunkSize) {
+                    int chunkSize,
+                    int method,
+                    int taskType,
+                    bool use_barrier) {
     NBodySystem system(G, epsilon);
     buildSystem(system, sys_type, nParticles, seed);
 
@@ -39,7 +42,15 @@ static void runCase(int caseId,
     const string trajectoryFile = "trajectories_" + label + ".dat";
 
     cout << "\n=== Caso " << caseId << ": " << label << " ===" << endl;
-    simulator.simulate(steps, energyFile, trajectoryFile, sim_type, syncType, scheduleType, chunkSize);
+    simulator.simulate(steps, energyFile, trajectoryFile, sim_type, syncType, scheduleType, chunkSize, method, taskType, use_barrier);
+}
+
+static void printModeHelp() {
+    cout << "Modos disponibles:\n"
+         << "  0 -> serial\n"
+         << "  1 -> paralelo con omp for\n"
+         << "  2 -> paralelo con tasks\n"
+         << "  3 -> ejecutar todos los modos\n";
 }
 
 int main() {
@@ -53,6 +64,9 @@ int main() {
     int mode;
     int scheduleType = 1;
     int chunkSize = 1;
+    int syncType = 0;
+    int method = 0;
+    bool use_barrier = false;
 
     cout << "Ingrese seed: ";
     cin >> seed;
@@ -75,31 +89,42 @@ int main() {
     cout << "Ingrese tipo de sistema, aleatorio (0), binario (1) o disco (2): ";
     cin >> sys_type;
 
-    cout << "Modo de prueba: serial (0), paralelo-critical (1), paralelo-nowait (2), tasks-critical (3), tasks-nowait (4), todos (5): ";
+    printModeHelp();
+    cout << "Modo de prueba: ";
     cin >> mode;
 
     switch (mode) {
         case 0:
-            runCase(0, "serial", steps, nParticles, seed, dt, G, epsilon, sys_type, 0, 0, scheduleType, chunkSize);
+            runCase(0, "serial", steps, nParticles, seed, dt, G, epsilon, sys_type, 0, 0, scheduleType, chunkSize, 0, -1, false);
             break;
         case 1:
-            runCase(1, "parallel_critical", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 1, scheduleType, chunkSize);
+            cout << "Metodo de energia: reduction (0), atomic (1), private (2): ";
+            cin >> method;
+            cout << "Sincronizacion de integracion: critical (1), nowait (2): ";
+            cin >> syncType;
+            if (syncType == 2) {
+                int barrierChoice;
+                cout << "Usar barrera explicita tras nowait? si (1), no (0): ";
+                cin >> barrierChoice;
+                use_barrier = (barrierChoice == 1);
+            }
+            cout << "Schedule para omp for: static (1), dynamic (2), guided (3), auto (4): ";
+            cin >> scheduleType;
+            cout << "Chunk size: ";
+            cin >> chunkSize;
+            runCase(1, "parallel_for", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, syncType, scheduleType, chunkSize, method, -1, use_barrier);
             break;
         case 2:
-            runCase(2, "parallel_nowait", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 2, scheduleType, chunkSize);
+            cout << "Sincronizacion de integracion: critical (1), nowait (2): ";
+            cin >> syncType;
+            runCase(2, "tasks", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, syncType, scheduleType, chunkSize, 0, 0, false);
             break;
         case 3:
-            runCase(3, "tasks_critical", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, 1, scheduleType, chunkSize);
-            break;
-        case 4:
-            runCase(4, "tasks_nowait", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, 2, scheduleType, chunkSize);
-            break;
-        case 5:
-            runCase(0, "serial", steps, nParticles, seed, dt, G, epsilon, sys_type, 0, 0, scheduleType, chunkSize);
-            runCase(1, "parallel_critical", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 1, scheduleType, chunkSize);
-            runCase(2, "parallel_nowait", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 2, scheduleType, chunkSize);
-            runCase(3, "tasks_critical", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, 1, scheduleType, chunkSize);
-            runCase(4, "tasks_nowait", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, 2, scheduleType, chunkSize);
+            runCase(0, "serial", steps, nParticles, seed, dt, G, epsilon, sys_type, 0, 0, scheduleType, chunkSize, 0, -1, false);
+            runCase(1, "parallel_for_reduction", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 2, 1, 16, 0, -1, false);
+            runCase(2, "parallel_for_atomic", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 2, 1, 16, 1, -1, false);
+            runCase(3, "parallel_for_private", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 2, 1, 16, 2, -1, false);
+            runCase(4, "tasks_private", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, 2, scheduleType, chunkSize, 0, 0, false);
             break;
         default:
             cout << "Modo no valido. Saliendo." << endl;
