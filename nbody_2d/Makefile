@@ -40,7 +40,7 @@ nbody: main.cpp $(SRCS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 benchmark: benchmark_main.cpp $(SRCS)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o benchmark
 	./benchmark
 
 # make test:
@@ -99,4 +99,6 @@ plot: analysis
 
 # make clean: elimina binarios, datos generados y figuras
 clean:
-	rm -f nbody test_runner *.dat *.png benchmark
+	rm -f nbody test_runner benchmark
+	rm -f *.dat *.png
+	@echo "Limpieza completada."

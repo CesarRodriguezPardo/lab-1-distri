@@ -2,24 +2,23 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Visualización de Speedup y predicción de Amdahl para el sistema N-Body.
 #
-# ENTRADA:  scaling_analysis.dat
+# ENTRADA:  scaling_parallel.dat  (parallel-for) o scaling_tasks.dat
 #   Columnas: Threads AvgTime StdDevTime Speedup SpeedupError
-#             Efficiency EfficiencyError SerialFraction
+#             Efficiency EfficiencyError SerialFraction ParallelFraction
 #   Primera fila: encabezado → se salta con 'every ::1'
 #
-# SALIDA:   speedup_plot.png
+# SALIDA:   speedup_parallel.png
 #   Panel superior: Sp(p) medido con barras de error ± σ_Sp
 #                   + curva ideal Sp = p
 #                   + predicción de Amdahl usando fracción serial promedio
-#   Panel inferior: fracción serial estimada por par (p, Sp) mediante Amdahl:
-#                   f = (1/Sp − 1/p) / (1 − 1/p)
+#   Panel inferior: f_s y f_p estimadas por punto mediante Amdahl
 #
 # USO:
 #   gnuplot scripts/plot_speedup.gnu    ← directo
 #   make plot                           ← vía Makefile (recomendado)
 # ─────────────────────────────────────────────────────────────────────────────
 
-DAT = 'scaling_analysis.dat'
+DAT = 'scaling_parallel.dat'
 
 # ── Detectar pmax (número de filas de datos, excluyendo header) ──────────────
 # Usamos system() para contar líneas; restamos 1 por el encabezado.
@@ -48,8 +47,8 @@ print sprintf("Fracción serial promedio (Amdahl): %.4f", f_serial)
 amdahl(p) = 1.0 / (f_serial + (1.0 - f_serial) / p)
 
 # ── Terminal de salida ────────────────────────────────────────────────────────
-set terminal pngcairo size 1000,800 enhanced font 'Helvetica,10' background '#FFFFFF'
-set output 'speedup_plot.png'
+set terminal pngcairo size 1000,900 enhanced font 'Helvetica,10' background '#FFFFFF'
+set output 'speedup_parallel.png'
 
 set datafile separator whitespace
 
@@ -97,25 +96,29 @@ plot DAT every ::1 using 1:4:5 \
 # ═══════════════════════════════════════════════════════════════════════════════
 # PANEL 2: Fracción serial estimada por punto
 # ═══════════════════════════════════════════════════════════════════════════════
-set title "Fracción serial estimada  {/*0.85 f = (1/S_p − 1/p) / (1 − 1/p)}" \
+set title "Fracciones serial y paralela  {/*0.85 Amdahl: f_s = (1/S_p − 1/p) / (1 − 1/p), f_p = 1 − f_s}" \
     font ",11" offset 0,-0.3
-set ylabel "f (fracción serial)" font ",10"
+set ylabel "Fracción" font ",10"
 set xlabel "Número de hilos p" font ",10"
 set bmargin 3
 set tmargin 0
 set yrange [0 : 1]
-unset key
+set key top right font ",9"
 
-# Línea horizontal: promedio de f
+# Líneas horizontales: promedios
 set arrow 1 from 0.5, f_serial to pmax+0.5, f_serial \
     nohead lc rgb '#4A90D9' lw 1.5 dt 3
-set label 1 sprintf("f̄ = %.3f", f_serial) \
+set label 1 sprintf("f̄_s = %.3f", f_serial) \
     at pmax+0.55, f_serial font ",8" tc rgb '#4A90D9'
 
+set style line 5 lc rgb '#E07B54' lw 1.2 pt 5 ps 1.0  # fracción paralela
+
 plot DAT every ::1 using 1:8 \
-     with linespoints ls 4 title 'f por hilo'
+     with linespoints ls 4 title 'f_s serial', \
+     DAT every ::1 using 1:9 \
+     with linespoints ls 5 title 'f_p paralela'
 
 unset arrow 1
 unset label 1
 unset multiplot
-print "speedup_plot.png generado correctamente."
+print "speedup_parallel.png generado correctamente."

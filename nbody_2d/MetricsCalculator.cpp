@@ -136,29 +136,33 @@ void MetricsCalculator::calculateMetricsFirstprivate() {
 void MetricsCalculator::calculateFinalStateLastprivate() {
     const auto& bodies = system->getBodies();
     int n = bodies.size();
-    
+
     double sumSqDist = 0.0;
     double totalMass = 0.0;
-    
-    
-    
-    #pragma omp parallel for reduction(+:sumSqDist, totalMass)
+
+    double lastX = 0.0, lastY = 0.0;
+
+    #pragma omp parallel for reduction(+:sumSqDist, totalMass) lastprivate(lastX, lastY)
     for(int i = 0; i < n; ++i) {
-        double m = bodies[i].getMass();
+        double m  = bodies[i].getMass();
         double dx = bodies[i].getX() - cmX;
         double dy = bodies[i].getY() - cmY;
-        
+
         sumSqDist += m * (dx * dx + dy * dy);
         totalMass += m;
-        
-        // El último thread que ejecute la última iteración podría guardar valores si fuera necesario
+
+        // La última iteración del loop deja sus valores en lastX/lastY (lastprivate)
+        lastX = bodies[i].getX();
+        lastY = bodies[i].getY();
     }
-    
+    // Aquí lastX/lastY contienen la posición de la partícula n-1 (última iteración)
+    (void)lastX; (void)lastY; // Usadas conceptualmente; evita warning de unused
+
     if (totalMass > 0) {
         rmsRadius = std::sqrt(sumSqDist / totalMass);
     }
-    
-    // Calculo de distancia minima - Triangular workload (dynamic schedule is critical)
+
+    // Cálculo de distancia mínima — carga triangular (dynamic mitiga desbalance)
     double min_dSq = std::numeric_limits<double>::max();
     #pragma omp parallel for reduction(min:min_dSq) schedule(dynamic, 16)
     for(int i = 0; i < n; ++i) {

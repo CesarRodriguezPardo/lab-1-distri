@@ -60,12 +60,15 @@ void NBodySystem::computeAccelerations(int scheduleType, int chunkSize) {
     int nBodies = bodies.size();
     omp_set_schedule(getScheduleFromInt(scheduleType), chunkSize);
 
-    #pragma omp for schedule(runtime)
+    double totalAX, totalAY, xi, yi;
+    #pragma omp parallel for schedule(runtime) \
+        private(totalAX, totalAY, xi, yi) \
+        shared(bodies)
     for (int i = 0; i < nBodies; ++i) {
-        double totalAX = 0.0;
-        double totalAY = 0.0;
-        double xi = bodies[i].getX();
-        double yi = bodies[i].getY();
+        totalAX = 0.0;
+        totalAY = 0.0;
+        xi = bodies[i].getX();
+        yi = bodies[i].getY();
 
         for (int j = 0; j < nBodies; ++j) {
             if (i == j) continue;
