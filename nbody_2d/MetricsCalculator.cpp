@@ -164,10 +164,11 @@ void MetricsCalculator::calculateFinalStateLastprivate() {
     }
 
     // Cálculo de distancia mínima — carga triangular.
-    // schedule(guided): el runtime reduce progresivamente el tamaño del chunk,
-    // lo que se adapta bien al trabajo decreciente del bucle i<j.
+    // schedule(guided, 8): el runtime reduce progresivamente el chunk.
+    // El mínimo de 8 evita que al final del bucle se generen chunks de tamaño 1,
+    // lo que provocaría overhead de scheduling superior al cómputo útil.
     double min_dSq = std::numeric_limits<double>::max();
-    #pragma omp parallel for reduction(min:min_dSq) schedule(guided)
+    #pragma omp parallel for reduction(min:min_dSq) schedule(guided, 8)
     for(int i = 0; i < n; ++i) {
         for(int j = i + 1; j < n; ++j) {
             double dx = bodies[j].getX() - bodies[i].getX();

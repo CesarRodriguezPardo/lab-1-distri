@@ -9,11 +9,13 @@ ENV DEBIAN_FRONTEND=noninteractive
 # ── Capa 1: herramientas de compilación C++ ───────────────────────────────────
 # Se instalan en una capa separada para aprovechar el cache de Docker:
 # si solo cambian las dependencias Python, esta capa no se reconstruye.
+# libgomp1: runtime de OpenMP requerido explícitamente para gomp scheduling.
 RUN apt-get update \
   && apt-get install -y --no-install-recommends \
     ca-certificates \
     g++ \
     make \
+    libgomp1 \
   && rm -rf /var/lib/apt/lists/*
 
 # ── Capa 2: gnuplot para generación de gráficos (make plot) ──────────────────
@@ -27,4 +29,6 @@ RUN apt-get update \
 
 WORKDIR /workspace
 
-CMD ["bash"]
+# Compila y ejecuta los tests automáticamente al arrancar el contenedor.
+# Uso: docker run --rm -v $(pwd):/workspace <imagen>
+CMD ["make", "test"]

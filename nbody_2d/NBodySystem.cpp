@@ -84,8 +84,65 @@ void NBodySystem::computeAccelerations(int scheduleType, int chunkSize) {
     }
 }
 
+// ─────────────────────────────────────────────────────────────
+//  computeAccelerations(int, int, bool) — variante con collapse(2)
+//
+//  POR QUÉ N×N y no N*(N-1)/2:
+//  collapse(2) requiere un espacio de iteración RECTANGULAR, es decir,
+//  los límites del loop interno no deben depender de la variable exterior.
+//  El bucle triangular  for(i) for(j=i+1,...) viola esa condición y produce
+//  comportamiento indefinido con collapse.
+//
+//  La solución correcta es el loop completo N×N con una matriz de fuerzas
+//  intermedias:  forces[i*n+j] = fuerza sobre i debida a j.
+//  Cada celda (i,j) es escrita por exactamente un hilo → libre de race conditions.
+//  Una segunda pasada (paralela) suma las filas en setAcceleration.
+// ─────────────────────────────────────────────────────────────
+void NBodySystem::computeAccelerations(int scheduleType, int chunkSize, bool useCollapse) {
+    if (!useCollapse) {
+        computeAccelerations(scheduleType, chunkSize); // delega a variante existente
+        return;
+    }
+
+    int n = static_cast<int>(bodies.size());
+    omp_set_schedule(getScheduleFromInt(scheduleType), chunkSize);
+
+    // Matriz de fuerzas (n×n): forces_x[i*n+j] = componente X de la fuerza sobre i debida a j
+    std::vector<double> forces_x(n * n, 0.0);
+    std::vector<double> forces_y(n * n, 0.0);
+
+    // ─── Fase 1: cálculo de fuerzas con collapse(2) ───────────────────────
+    // collapse(2) aplana el doble bucle i,j en n*n iteraciones independientes.
+    // Cada celda (i,j) es independiente → sin race conditions.
+    #pragma omp parallel for collapse(2) schedule(runtime)
+    for (int i = 0; i < n; ++i) {
+        for (int j = 0; j < n; ++j) {
+            if (i == j) continue; // sin auto-fuerza
+            double dx = bodies[j].getX() - bodies[i].getX();
+            double dy = bodies[j].getY() - bodies[i].getY();
+            double rSq = dx * dx + dy * dy + eps * eps;
+            double r   = std::sqrt(rSq);
+            double f   = (G_const * bodies[j].getMass()) / (rSq * r);
+            forces_x[i * n + j] = f * dx;
+            forces_y[i * n + j] = f * dy;
+        }
+    }
+
+    // ─── Fase 2: reducción por fila (sumatoria por partícula) ─────────────────
+    #pragma omp parallel for schedule(static)
+    for (int i = 0; i < n; ++i) {
+        double ax = 0.0, ay = 0.0;
+        for (int j = 0; j < n; ++j) {
+            ax += forces_x[i * n + j];
+            ay += forces_y[i * n + j];
+        }
+        bodies[i].setAcceleration(ax, ay);
+    }
+}
+
 void NBodySystem::computeAccelerations(int taskType) {
     int nBodies = bodies.size();
+
     if (taskType == 0) {
         // Tareas sin dependencias explícitas
         #pragma omp parallel

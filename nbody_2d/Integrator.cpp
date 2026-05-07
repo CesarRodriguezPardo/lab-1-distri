@@ -1,4 +1,5 @@
 #include "Integrator.h"
+#include <cmath>
 
 Integrator::Integrator(NBodySystem* sys, double dt)
     : system(sys), time_step(dt) {}
@@ -48,6 +49,27 @@ void Integrator::integrateEuler(int syncType) {
                 particles[i].kick(time_step);
                 particles[i].drift(time_step);
             }
+        }
+        break;
+
+    case 3: // atomic — integra partículas en paralelo y acumula de forma atómica
+            // el desplazamiento total del paso (métrica diagnóstica compartida).
+            // Las escrituras por partícula son seguras (accesos independientes);
+            // la acumulación de 'totalDisplacement' sí requiere protección atómica
+            // porque múltiples hilos escriben en la misma variable.
+        {
+            double totalDisplacement = 0.0;
+            #pragma omp parallel for schedule(static)
+            for (int i = 0; i < n; ++i) {
+                particles[i].kick(time_step);
+                double dx = particles[i].getVX() * time_step;
+                double dy = particles[i].getVY() * time_step;
+                particles[i].drift(time_step);
+                double disp = std::sqrt(dx * dx + dy * dy);
+                #pragma omp atomic
+                totalDisplacement += disp;
+            }
+            (void)totalDisplacement; // disponible para logging externo
         }
         break;
 
