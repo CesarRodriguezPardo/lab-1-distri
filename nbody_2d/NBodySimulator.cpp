@@ -1,74 +1,25 @@
 # include "NBodySimulator.h"
- 
+
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt)
-    : system(sys), time_step(dt){}
+    : system(sys), time_step(dt), integrator(sys, dt) {}
       
 
-void NBodySimulator::integrateEuler(){
-    auto& particles = system->getParticles();
-    int n = particles.size();
-
-    for (int i = 0; i < n; ++i){
-        particles[i].kick(time_step);
-        particles[i].drift(time_step);
-    }
+// ─────────────────────────────────────────────────────────────
+//  integrateEuler — delegaciones a la clase Integrator
+//  La lógica completa vive en Integrator.cpp para mantener
+//  separación de responsabilidades.
+// ─────────────────────────────────────────────────────────────
+void NBodySimulator::integrateEuler() {
+    integrator.integrateEuler();
 }
 
 void NBodySimulator::integrateEuler(int syncType) {
-    auto& particles = system->getParticles();
-    int n = particles.size();
-
-    switch (syncType) {
-    case 1: // critical
-        #pragma omp parallel for schedule(static)
-        for (int i = 0; i < n; ++i) {
-            #pragma omp critical
-            {
-                particles[i].kick(time_step);
-                particles[i].drift(time_step);
-            }
-        }
-        break;
-    case 2: // nowait
-        #pragma omp parallel
-        {
-            #pragma omp for nowait schedule(static)
-            for (int i = 0; i < n; ++i) {
-                particles[i].kick(time_step);
-                particles[i].drift(time_step);
-            }
-        }
-        break;
-    default:
-        integrateEuler();
-        break;
-    }
+    integrator.integrateEuler(syncType);
 }
-
 
 void NBodySimulator::integrateEuler(int syncType, bool use_barrier) {
-    auto& particles = system->getParticles();
-    int n = particles.size();
-
-    if (syncType != 2) {
-        integrateEuler(syncType);
-        return;
-    }
-
-    #pragma omp parallel
-    {
-        #pragma omp for nowait schedule(static)
-        for (int i = 0; i < n; ++i) {
-            particles[i].kick(time_step);
-            particles[i].drift(time_step);
-        }
-
-        if (use_barrier) {
-            #pragma omp barrier
-        }
-    }
+    integrator.integrateEuler(syncType, use_barrier);
 }
-
 
 void NBodySimulator::calculateEnergy(std::ostream &energyFile){
     auto& particles = system->getParticles();

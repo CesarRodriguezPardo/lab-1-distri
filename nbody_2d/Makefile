@@ -12,6 +12,7 @@ CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 # Fuentes del simulador (sin main.cpp → reutilizables en tests)
 SRCS = Particle.cpp \
        NBodySystem.cpp \
+       Integrator.cpp \
        NBodySimulator.cpp \
        MetricsCalculator.cpp \
        Benchmark.cpp

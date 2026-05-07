@@ -162,9 +162,11 @@ void MetricsCalculator::calculateFinalStateLastprivate() {
         rmsRadius = std::sqrt(sumSqDist / totalMass);
     }
 
-    // Cálculo de distancia mínima — carga triangular (dynamic mitiga desbalance)
+    // Cálculo de distancia mínima — carga triangular.
+    // schedule(guided): el runtime reduce progresivamente el tamaño del chunk,
+    // lo que se adapta bien al trabajo decreciente del bucle i<j.
     double min_dSq = std::numeric_limits<double>::max();
-    #pragma omp parallel for reduction(min:min_dSq) schedule(dynamic, 16)
+    #pragma omp parallel for reduction(min:min_dSq) schedule(guided)
     for(int i = 0; i < n; ++i) {
         for(int j = i + 1; j < n; ++j) {
             double dx = bodies[j].getX() - bodies[i].getX();
