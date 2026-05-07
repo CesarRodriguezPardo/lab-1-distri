@@ -12,6 +12,7 @@ CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 # Fuentes del simulador (sin main.cpp → reutilizables en tests)
 SRCS = Particle.cpp \
        NBodySystem.cpp \
+       Integrator.cpp \
        NBodySimulator.cpp \
        MetricsCalculator.cpp \
        Benchmark.cpp
@@ -40,7 +41,7 @@ nbody: main.cpp $(SRCS)
 	$(CXX) $(CXXFLAGS) $^ -o $@
 
 benchmark: benchmark_main.cpp $(SRCS)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+	$(CXX) $(CXXFLAGS) $^ -o benchmark
 	./benchmark
 
 # make test:
@@ -99,4 +100,6 @@ plot: analysis
 
 # make clean: elimina binarios, datos generados y figuras
 clean:
-	rm -f nbody test_runner *.dat *.png benchmark
+	rm -f nbody test_runner benchmark
+	rm -f *.dat *.png
+	@echo "Limpieza completada."

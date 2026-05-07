@@ -597,3 +597,75 @@ TEST_CASE("NBodySimulator: integrateEuler(nowait) produce mismo resultado que se
         REQUIRE(bN[i].getVY() == Approx(bS[i].getVY()).margin(1e-14));
     }
 }
+
+TEST_CASE("NBodySimulator: integrateEuler(atomic) produce mismo resultado que serial",
+          "[NBodySimulator][parallel][syncType3]") {
+    // syncType=3 usa #pragma omp atomic para acumular totalDisplacement
+    // (métrica diagnóstica). Las posiciones/velocidades de cada partícula
+    // se actualizan de forma independiente → el resultado debe ser idéntico al serial.
+    const int    N     = 5;
+    const int    steps = 10;
+    const int    seed  = 42;
+    const double dt    = 0.01;
+
+    // ── Sistema serial (referencia) ───────────────────────────
+    NBodySystem  sysSerial(1.0, 0.05);
+    sysSerial.randomSystem(N, seed);
+    NBodySimulator simSerial(&sysSerial, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysSerial.computeAccelerations();
+        simSerial.integrateEuler();          // serial
+    }
+
+    // ── Sistema con atomic ─────────────────────────────────────
+    NBodySystem  sysAtomic(1.0, 0.05);
+    sysAtomic.randomSystem(N, seed);         // misma semilla
+    NBodySimulator simAtomic(&sysAtomic, dt);
+
+    for (int s = 0; s < steps; ++s) {
+        sysAtomic.computeAccelerations();
+        simAtomic.integrateEuler(3);         // atomic
+    }
+
+    // ── Comparar ──────────────────────────────────────────────
+    const auto& bS = sysSerial.getBodies();
+    const auto& bA = sysAtomic.getBodies();
+
+    for (int i = 0; i < N; ++i) {
+        INFO("Discrepancia en cuerpo " << i);
+        REQUIRE(bA[i].getX()  == Approx(bS[i].getX() ).margin(1e-14));
+        REQUIRE(bA[i].getY()  == Approx(bS[i].getY() ).margin(1e-14));
+        REQUIRE(bA[i].getVX() == Approx(bS[i].getVX()).margin(1e-14));
+        REQUIRE(bA[i].getVY() == Approx(bS[i].getVY()).margin(1e-14));
+    }
+}
+
+TEST_CASE("NBodySystem: computeAccelerations collapse(2) produce aceleraciones identicas al serial",
+          "[NBodySystem][physics][collapse]") {
+    // Verifica que la variante con collapse(2) (N×N con matriz de fuerzas)
+    // produce el mismo resultado físico que el método serial.
+    // Esta prueba detecta race conditions o errores de índice en la variante collapse.
+    const int N    = 5;
+    const int seed = 7;
+
+    // ── Sistema serial (referencia) ───────────────────────────
+    NBodySystem sysSerial(1.0, 0.05);
+    sysSerial.randomSystem(N, seed);
+    sysSerial.computeAccelerations();
+
+    // ── Sistema con collapse(2) ────────────────────────────────
+    NBodySystem sysCollapse(1.0, 0.05);
+    sysCollapse.randomSystem(N, seed);          // misma semilla → mismas posiciones
+    sysCollapse.computeAccelerations(1, 8, true); // scheduleType=static, chunk=8, useCollapse=true
+
+    // ── Comparar aceleraciones ─────────────────────────────────
+    const auto& bS = sysSerial.getBodies();
+    const auto& bC = sysCollapse.getBodies();
+
+    for (int i = 0; i < N; ++i) {
+        INFO("Aceleración diverge en cuerpo " << i);
+        REQUIRE(bC[i].getAX() == Approx(bS[i].getAX()).margin(1e-12));
+        REQUIRE(bC[i].getAY() == Approx(bS[i].getAY()).margin(1e-12));
+    }
+}
