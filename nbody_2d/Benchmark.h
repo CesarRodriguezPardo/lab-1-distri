@@ -47,12 +47,12 @@ private:
                        double& avgTime, double& stdDevTime,
                        bool fork_join_outside = false);
 
+public:
+    explicit Benchmark(int repetitions = 10);
+
     // Versión interna sin argumento bool (para chunk analysis y private/shared)
     void runExperimentSimple(const std::function<void()>& func,
                              double& avgTime, double& stdDevTime);
-
-public:
-    explicit Benchmark(int repetitions = 10);
 
     // Ejecuta análisis de escalabilidad de 1 hasta maxThreads
     void runScalingAnalysis(int maxThreads,

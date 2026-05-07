@@ -15,6 +15,7 @@
 #include <omp.h>
 #include "NBodySystem.h"
 #include "NBodySimulator.h"
+#include "MetricsCalculator.h"
 #include "Benchmark.h"
 
 // ─── Constantes de configuración del benchmark ────────────────
@@ -74,58 +75,53 @@ int main() {
     benchTasks.saveResultsToFile("scaling_tasks.dat");
 
     // ═══════════════════════════════════════════════════════════
-    //  BENCHMARK C — private vs shared
-    //  Compara calculateEnergy con variables privadas vs compartidas.
-    //  Usa numThreads fijo = maxThreads.
-    //  Obtiene el tiempo serial de referencia (1 hilo).
+    //  BENCHMARK C — Sincronización (reduction vs atomic vs critical)
+    //  Compara los 3 métodos en calculateEnergy.
     // ═══════════════════════════════════════════════════════════
     std::cout << "\n──────────────────────────────────────────────\n"
-              << "BENCHMARK C: private vs shared (calculateEnergy)\n"
+              << "BENCHMARK C: Sincronización (reduction vs atomic vs critical)\n"
               << "──────────────────────────────────────────────\n";
 
-    // Tiempo serial de referencia: calculateEnergy con 1 hilo
-    omp_set_num_threads(1);
-    double t_serial_energy_avg = 0.0, t_serial_energy_std = 0.0;
-    {
-        Benchmark tmpSerial(N_REPS);
-        // Usamos runExperiment internamente vía runScalingAnalysis con maxThreads=1
-        // Pero es más directo: un warmup manual + medición simple
-        int warmReps = 3, measureReps = N_REPS, nBatches = 5;
-        for (int w = 0; w < warmReps; ++w)
-            simulator.calculateEnergy(static_cast<std::ostream&>(devNull), false /*shared*/);
+    MetricsCalculator calc(&system);
 
-        std::vector<double> batchTimes(nBatches);
-        for (int b = 0; b < nBatches; ++b) {
-            double t0 = omp_get_wtime();
-            for (int i = 0; i < measureReps; ++i)
-                simulator.calculateEnergy(static_cast<std::ostream&>(devNull), false);
-            double t1 = omp_get_wtime();
-            batchTimes[b] = (t1 - t0) / measureReps;
-            t_serial_energy_avg += batchTimes[b];
-        }
-        t_serial_energy_avg /= nBatches;
-        for (int b = 0; b < nBatches; ++b) {
-            double d = batchTimes[b] - t_serial_energy_avg;
-            t_serial_energy_std += d * d;
-        }
-        t_serial_energy_std = std::sqrt(t_serial_energy_std / (nBatches - 1));
-        std::cout << "Referencia serial (1 hilo): T=" << t_serial_energy_avg
-                  << "s (±" << t_serial_energy_std << ")\n";
+    // Tiempo serial de referencia para Speedup
+    double t_serial_energy = 0.0, t_serial_std = 0.0;
+    {
+        omp_set_num_threads(1);
+        Benchmark tmp(N_REPS);
+        tmp.runExperimentSimple([&]() { calc.calculateEnergy(0); }, t_serial_energy, t_serial_std);
+        std::cout << "Referencia serial (1 hilo): " << t_serial_energy << "s\n";
     }
 
-    int fixedThreadsPrivShared = maxThreads;
-    omp_set_num_threads(fixedThreadsPrivShared);
+    struct SyncResult { std::string name; double time; double stddev; };
+    std::vector<SyncResult> sync_results;
+    std::vector<std::string> sync_names = {"reduction", "atomic", "critical"};
 
-    Benchmark benchPrivShared(N_REPS);
-    benchPrivShared.runPrivateVsShared(
-        fixedThreadsPrivShared,
-        t_serial_energy_avg,
-        // funcPrivate → calculateEnergy(bool use_private = true)
-        [&]() { simulator.calculateEnergy(static_cast<std::ostream&>(devNull), true); },
-        // funcShared  → calculateEnergy(bool use_private = false)
-        [&]() { simulator.calculateEnergy(static_cast<std::ostream&>(devNull), false); }
-    );
-    benchPrivShared.savePrivateSharedToFile("private_vs_shared.dat");
+    omp_set_num_threads(maxThreads);
+    for (int m = 0; m < 3; ++m) {
+        double avg = 0.0, stddev = 0.0;
+        Benchmark tmp(N_REPS);
+        tmp.runExperimentSimple([&]() { calc.calculateEnergy(m); }, avg, stddev);
+        sync_results.push_back({sync_names[m], avg, stddev});
+        
+        double sp = t_serial_energy / avg;
+        // Propagación de error para el reporte en consola
+        double rel1 = t_serial_std / t_serial_energy;
+        double relp = stddev / avg;
+        double sp_err = sp * std::sqrt(rel1*rel1 + relp*relp);
+
+        std::cout << "Metodo: " << std::left << std::setw(10) << sync_names[m]
+                  << " | T: " << avg << "s (±" << stddev << ")"
+                  << " | Sp: " << sp << " (±" << sp_err << ")\n";
+    }
+
+    // Guardar resultados de sincronización
+    std::ofstream outSync("sync_comparison.dat");
+    outSync << "Method AvgTime StdDevTime Speedup\n";
+    for (const auto& r : sync_results) {
+        outSync << r.name << " " << r.time << " " << r.stddev << " " << t_serial_energy/r.time << "\n";
+    }
+    outSync.close();
 
     // ═══════════════════════════════════════════════════════════
     //  BENCHMARK D — Chunk × Schedule analysis
