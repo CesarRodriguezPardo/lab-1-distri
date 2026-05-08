@@ -80,6 +80,8 @@ analysis: nbody
 #     Debian → apt-get install gnuplot   (ya incluido en el Dockerfile)
 plot: analysis
 	@[ -f scaling_analysis.dat ] || $(MAKE) benchmark
+	@echo "==> Generando gráfico del sistema..."
+	gnuplot $(SCRIPTS_DIR)/plot_system.gnu
 	@echo "==> Generando gráfico de energía..."
 	gnuplot $(SCRIPTS_DIR)/plot_energy.gnu
 	@echo "==> Generando gráficos de trayectorias..."

@@ -27,6 +27,7 @@ class NBodySystem {
         void randomSystem(int amount, int seed = 1);
         void bynarySystem(int seed);
         void diskSystem(int amount, int seed);
+        void savePositions(const std::string& filename);
         void saveSnapshot(std::ostream& outFile, int step);
 
         //getters

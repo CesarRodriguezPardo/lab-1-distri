@@ -185,6 +185,26 @@ int NBodySystem::getCount() const {
     return bodies.size();
 }
 
+void NBodySystem::savePositions(const std::string& filename) {
+    std::ofstream file(filename);
+
+    if (!file.is_open()) {
+        std::cerr << "Error al abrir el archivo: " << filename << std::endl;
+        return;
+    }
+
+    // Guardar:
+    // x y masa
+    for (const auto& body : bodies) {
+
+        file << body.getX() << " "
+             << body.getY() << " "
+             << body.getMass() << "\n";
+    }
+
+    file.close();
+}
+
 void NBodySystem::randomSystem(int amount, int seed) {
     std::mt19937 gen(seed);
     

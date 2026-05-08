@@ -10,10 +10,13 @@ using namespace std;
 static void buildSystem(NBodySystem& system, int sys_type, int nParticles, int seed) {
     if (sys_type == 0) {
         system.randomSystem(nParticles, seed);
+        system.savePositions("random_system.dat");
     } else if (sys_type == 1) {
         system.bynarySystem(seed);
+        system.savePositions("binary_system.dat");
     } else if (sys_type == 2) {
         system.diskSystem(nParticles, seed);
+        system.savePositions("disk_system.dat");
     }
 }
 
