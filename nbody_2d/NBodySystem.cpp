@@ -185,6 +185,29 @@ int NBodySystem::getCount() const {
     return bodies.size();
 }
 
+void NBodySystem::savePositions(const std::string& filename) {
+    std::ofstream file(filename);
+
+    if (!file.is_open()) {
+        std::cerr << "Error al abrir el archivo: " << filename << std::endl;
+        return;
+    }
+
+    // Encabezado
+    file << "X Y Masa\n";
+    
+    // Guardar:
+    // x y masa
+    for (const auto& body : bodies) {
+
+        file << body.getX() << " "
+             << body.getY() << " "
+             << body.getMass() << "\n";
+    }
+
+    file.close();
+}
+
 void NBodySystem::randomSystem(int amount, int seed) {
     std::mt19937 gen(seed);
     
@@ -208,9 +231,8 @@ void NBodySystem::randomSystem(int amount, int seed) {
     }
 }
 
-void NBodySystem::bynarySystem (int seed) {
+void NBodySystem::binarySystem (int seed) {
     std::mt19937 gen(seed);
-    std::uniform_real_distribution<double> dist(0.0, 100.0);
 
     // Centro aleatorio
     std::uniform_real_distribution<double> distCenter(25.0, 75.0);

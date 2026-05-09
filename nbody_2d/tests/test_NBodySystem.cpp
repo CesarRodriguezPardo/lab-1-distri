@@ -88,9 +88,9 @@ TEST_CASE("NBodySystem: randomSystem con distinta semilla produce posiciones dis
     REQUIRE(diferente);
 }
 
-TEST_CASE("NBodySystem: bynarySystem genera exactamente 3 partículas", "[NBodySystem][generators]") {
+TEST_CASE("NBodySystem: binarySystem genera exactamente 3 partículas", "[NBodySystem][generators]") {
     NBodySystem sys(1.0, 0.05);
-    sys.bynarySystem(99);
+    sys.binarySystem(99);
     REQUIRE(sys.getCount() == 3);
 }
 
