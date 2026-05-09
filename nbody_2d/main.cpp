@@ -4,15 +4,57 @@
 #include "NBodySimulator.h"
 #include "Benchmark.h"
 #include "MetricsCalculator.h"
+#include <limits>
 
 using namespace std;
+
+int readInt(const string& msg) {
+    int value;
+
+    while (true) {
+        cout << msg;
+
+        if (cin >> value) {
+            return value;
+        }
+
+        cerr << "Error: debe ingresar un numero entero valido.\n";
+
+        cin.clear();
+        cin.ignore(numeric_limits<streamsize>::max(), '\n');
+    }
+}
+
+double readPositiveDouble(const string& msg) {
+    double value;
+
+    while (true) {
+        cout << msg;
+
+        if (!(cin >> value)) {
+            cerr << "Error: debe ingresar un numero real valido.\n";
+
+            cin.clear();
+            cin.ignore(numeric_limits<streamsize>::max(), '\n');
+
+            continue;
+        }
+
+        if (value <= 0) {
+            cerr << "Error: el numero debe ser mayor que 0.\n";
+            continue;
+        }
+
+        return value;
+    }
+}
 
 static void buildSystem(NBodySystem& system, int sys_type, int nParticles, int seed) {
     if (sys_type == 0) {
         system.randomSystem(nParticles, seed);
         system.savePositions("random_system.dat");
     } else if (sys_type == 1) {
-        system.bynarySystem(seed);
+        system.binarySystem(seed);
         system.savePositions("binary_system.dat");
     } else if (sys_type == 2) {
         system.diskSystem(nParticles, seed);
@@ -58,7 +100,7 @@ static void printModeHelp() {
 
 int main() {
     int seed;
-    int nParticles;
+    int nParticles = 0;
     double dt;
     double G;
     double epsilon;
@@ -71,30 +113,43 @@ int main() {
     int method = 0;
     bool use_barrier = false;
 
-    cout << "Ingrese seed: ";
-    cin >> seed;
+    seed = readInt("Ingrese seed: ");
 
-    cout << "Ingrese numero de particulas: ";
-    cin >> nParticles;
+    sys_type = readInt("Ingrese tipo de sistema, aleatorio (0), binario (1) o disco (2): ");
+    while (sys_type < 0 || sys_type > 2) {
+        cerr << "Tipo de sistema invalido.\n";
+        sys_type = readInt("Ingrese nuevamente: ");
+    }
 
-    cout << "Ingrese dt: ";
-    cin >> dt;
+    if (sys_type != 1) {
+        nParticles = readInt("Ingrese numero de particulas: ");
+        while (nParticles <= 0) {
+            cerr << "El numero de particulas debe ser mayor que 0.\n";
+            nParticles = readInt("Ingrese nuevamente: ");
+        }
+    }
 
-    cout << "Ingrese G: ";
-    cin >> G;
+    dt = readPositiveDouble("Ingrese dt: ");
 
-    cout << "Ingrese epsilon: ";
-    cin >> epsilon;
+    G = readPositiveDouble("Ingrese G: ");
 
-    cout << "Ingrese numero de pasos: ";
-    cin >> steps;
+    epsilon = readPositiveDouble("Ingrese epsilon: ");
+  
 
-    cout << "Ingrese tipo de sistema, aleatorio (0), binario (1) o disco (2): ";
-    cin >> sys_type;
+    steps = readInt("Ingrese numero de pasos: ");
+    while (steps <= 0) {
+        cerr << "El numero de pasos debe ser mayor que 0.\n";
+        steps = readInt("Ingrese numero de pasos: ");
+    }
+
 
     printModeHelp();
-    cout << "Modo de prueba: ";
-    cin >> mode;
+    mode = readInt("Seleccione modo de simulacion: ");
+    while (mode < 0 || mode > 3) {
+        cerr << "Modo no valido.\n";
+        printModeHelp();
+        mode = readInt("Seleccione modo de simulacion: ");
+    }
 
     switch (mode) {
         case 0:
@@ -129,9 +184,6 @@ int main() {
             runCase(3, "parallel_for_private", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 2, 1, 16, 2, -1, false);
             runCase(4, "tasks_private", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, 2, scheduleType, chunkSize, 0, 0, false);
             break;
-        default:
-            cout << "Modo no valido. Saliendo." << endl;
-            return 1;
     }
 
     return 0;

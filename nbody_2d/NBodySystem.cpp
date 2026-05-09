@@ -193,6 +193,9 @@ void NBodySystem::savePositions(const std::string& filename) {
         return;
     }
 
+    // Encabezado
+    file << "X Y Masa\n";
+    
     // Guardar:
     // x y masa
     for (const auto& body : bodies) {
@@ -228,9 +231,8 @@ void NBodySystem::randomSystem(int amount, int seed) {
     }
 }
 
-void NBodySystem::bynarySystem (int seed) {
+void NBodySystem::binarySystem (int seed) {
     std::mt19937 gen(seed);
-    std::uniform_real_distribution<double> dist(0.0, 100.0);
 
     // Centro aleatorio
     std::uniform_real_distribution<double> distCenter(25.0, 75.0);

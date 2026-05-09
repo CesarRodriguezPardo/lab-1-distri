@@ -216,8 +216,9 @@ void NBodySimulator::processBodies(std::ostream &energyFile, int taskType,int sy
 
 
 void NBodySimulator::simulate(int steps, std::string energyFilename, std::string trajectoryFilename, int sim_type, int syncType, int scheduleType, int chunkSize, int method, int taskType, bool use_barrier) {
-    //creacion del archivo de energias.dat
+    //creacion del archivo de energias y trayectorias .dat
     std::ofstream energyFile;
+    std::ofstream trajectoryFile;
 
     energyFile.open(energyFilename, std::ios::out);
     if (!energyFile.is_open()) {
@@ -229,13 +230,15 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
         energyFile << "K_Cinetica \t U_Potencial \t E_Total\n";
     }
 
-    //creacion del archivo de trayectorias
-    std::ofstream file(trajectoryFilename, std::ios::out);
-    if (!file.is_open()) {
+    trajectoryFile.open(trajectoryFilename, std::ios::out);
+    if (!trajectoryFile.is_open()) {
         std::cerr << "No se pudo abrir el archivo de trayectorias: " << trajectoryFilename << std::endl;
         return;
     }
-    file << "id \t step \t X \t Y \t VX \t VY\n";
+
+    if (trajectoryFile.tellp() == 0) {
+        trajectoryFile << "id \t step \t X \t Y \t VX \t VY\n";
+    }
 
     auto start = std::chrono::high_resolution_clock::now();
 
@@ -245,7 +248,7 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
     if(sim_type == 0){
         for(int step = 0; step < steps; ++step){
             this->processBodies(energyFile);
-            system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
+            system->saveSnapshot(trajectoryFile, step); // Guardar el estado actual en el archivo
             if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
                 std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
             }
@@ -255,7 +258,7 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
         if(taskType == -1){
             for (int step = 0; step < steps; ++step){
                 this->processBodies(energyFile, method, syncType, scheduleType, chunkSize, use_barrier);
-                system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
+                system->saveSnapshot(trajectoryFile, step); // Guardar el estado actual en el archivo
                 if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
                     std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
                 }
@@ -265,7 +268,7 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
         } else{
             for (int step = 0; step < steps; ++step){
                 this->processBodies(energyFile, taskType, syncType);
-                system->saveSnapshot(file, step); // Guardar el estado actual en el archivo
+                system->saveSnapshot(trajectoryFile, step); // Guardar el estado actual en el archivo
                 if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
                     std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
                 }
@@ -275,6 +278,7 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
     }
 
     energyFile.close();
+    trajectoryFile.close();
 
     auto end = std::chrono::high_resolution_clock::now();
 

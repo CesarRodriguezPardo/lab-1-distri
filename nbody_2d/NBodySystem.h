@@ -25,7 +25,7 @@ class NBodySystem {
         const std::vector<Particle>& getBodies() const;
         int getCount() const;
         void randomSystem(int amount, int seed = 1);
-        void bynarySystem(int seed);
+        void binarySystem(int seed);
         void diskSystem(int amount, int seed);
         void savePositions(const std::string& filename);
         void saveSnapshot(std::ostream& outFile, int step);
