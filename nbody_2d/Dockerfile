@@ -31,4 +31,4 @@ WORKDIR /workspace
 
 # Compila y ejecuta los tests automáticamente al arrancar el contenedor.
 # Uso: docker run --rm -v $(pwd):/workspace <imagen>
-CMD ["make", "test"]
+CMD ["bash"]
