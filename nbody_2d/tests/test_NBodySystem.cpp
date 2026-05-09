@@ -283,6 +283,70 @@ TEST_CASE("NBodySystem: valor analítico exacto de aceleración (3 cuerpos colin
     REQUIRE(b[2].getAY() == Approx( 0.0 ).margin(1e-12));
 }
 
+TEST_CASE("NBodySystem: valor analítico exacto de aceleración con suavizado",
+          "[NBodySystem][physics][analytical][softening]") {
+    // Geometría fija (escenario del documento):
+    // p0 en (0, 0)
+    // p1 en (1, 0) -> d = 1.0
+    // m1=1.0, m2=1.0, G=1.0, eps=0.1
+    // La aceleración en X para la partícula 1 debe ser ~0.971
+    NBodySystem sys(1.0, 0.1);
+    sys.addParticle(Particle(1.0, 0.0, 0.0));  // p0
+    sys.addParticle(Particle(1.0, 1.0, 0.0));  // p1
+    sys.computeAccelerations();
+
+    const auto& b = sys.getBodies();
+
+    // Verificamos con una tolerancia adecuada
+    REQUIRE(b[0].getAX() == Approx(0.971).margin(0.01));
+}
+
+// ─────────────────────────────────────────────
+//  SECCIÓN: Controles de Regresión Intencionados
+// ─────────────────────────────────────────────
+TEST_CASE("Regresión: añadir masa nula no afecta aceleraciones (sensibilidad)", "[Regresion]") {
+    NBodySystem sysA(1.0, 0.0);
+    sysA.addParticle(Particle(1.0, 0.0, 0.0));
+    sysA.addParticle(Particle(1.0, 10.0, 0.0));
+    sysA.computeAccelerations();
+
+    NBodySystem sysB(1.0, 0.0);
+    sysB.addParticle(Particle(1.0, 0.0, 0.0));
+    sysB.addParticle(Particle(1.0, 10.0, 0.0));
+    
+    // Masa fantasma que NO debería contribuir en nada:
+    sysB.addParticle(Particle(0.0, 5.0, 5.0));
+    
+    sysB.computeAccelerations();
+
+    const auto& bA = sysA.getBodies();
+    const auto& bB = sysB.getBodies();
+
+    REQUIRE(bA[0].getAX() == Approx(bB[0].getAX()).margin(1e-12));
+    REQUIRE(bA[1].getAX() == Approx(bB[1].getAX()).margin(1e-12));
+}
+
+TEST_CASE("Regresión: Desviación catastrófica al corromper estado manual", "[Regresion]") {
+    NBodySystem sys(1.0, 0.0);
+    sys.addParticle(Particle(100.0, 0.0, 0.0));
+    sys.addParticle(Particle(100.0, 1.0, 0.0));
+
+    // Computamos estado inicial sano
+    sys.computeAccelerations();
+    double accelSano = sys.getBodies()[0].getAX();
+
+    // Reemplazamos una partícula a distancia microscópica (casi 0) sin suavizado para forzar explosión de coma flotante
+    NBodySystem sysRoto(1.0, 0.0);
+    sysRoto.addParticle(Particle(100.0, 0.0, 0.0));
+    sysRoto.addParticle(Particle(100.0, 1e-15, 0.0)); 
+
+    sysRoto.computeAccelerations();
+    double accelRoto = sysRoto.getBodies()[0].getAX();
+
+    // La regresión verifica que haya una desviación masiva e inaceptable frente al modelo estable
+    REQUIRE(std::abs(accelSano - accelRoto) > 1e10);
+}
+
 // ─────────────────────────────────────────────
 //  SECCIÓN: Acción-reacción — 3ª Ley de Newton
 // ─────────────────────────────────────────────

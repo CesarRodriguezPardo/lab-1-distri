@@ -24,7 +24,8 @@ SRCS = Particle.cpp \
 TEST_SRCS = tests/catch_amalgamated.cpp \
             tests/test_Particle.cpp \
             tests/test_NBodySystem.cpp \
-            tests/test_MetricsCalculator.cpp
+            tests/test_MetricsCalculator.cpp \
+            tests/test_Integrator.cpp
 
 # Directorio de scripts Gnuplot
 SCRIPTS_DIR = scripts
