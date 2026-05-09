@@ -2,7 +2,7 @@
 # ─────────────────────────────────────────────────────────────────────────────
 # Visualización de Eficiencia paralela para el sistema N-Body.
 #
-# ENTRADA:  scaling_analysis.dat
+# ENTRADA:  scaling_parallel.dat
 #   Columnas: Threads AvgTime StdDevTime Speedup SpeedupError
 #             Efficiency EfficiencyError SerialFraction
 #   Primera fila: encabezado → se salta con 'every ::1'
@@ -18,7 +18,7 @@
 #   make plot                              ← vía Makefile (recomendado)
 # ─────────────────────────────────────────────────────────────────────────────
 
-DAT = 'scaling_analysis.dat'
+DAT = 'scaling_parallel.dat'
 
 # ── Detectar pmax ─────────────────────────────────────────────────────────────
 pmax = int(system("awk 'NR>1{c++} END{print c}' ".DAT))

@@ -2,7 +2,7 @@
 OMPFLAGS = -fopenmp
 
 # Compilador y flags base
-CXX      = g++
+CXX      = g++-15
 CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
 
 # ─────────────────────────────────────────────────────────────
@@ -67,8 +67,8 @@ analysis: nbody
 
 # make plot:
 #   1. Llama a make analysis (asegura que los .dat de simulación existen)
-#   2. Si scaling_analysis.dat no existe, llama a make benchmark
-#      (benchmark genera también benchmark_results.dat para plot_chunk)
+#   2. Si scaling_parallel.dat no existe, llama a make benchmark
+#      (benchmark genera también chunk_schedule.dat para plot_chunk)
 #   3. Genera los 6 gráficos con gnuplot:
 #        energy_plot.png        — K(t), U(t), E(t)
 #        trajectories_plot.png  — trayectorias XY (primeros 8 cuerpos)
@@ -80,7 +80,7 @@ analysis: nbody
 #     macOS  → brew install gnuplot
 #     Debian → apt-get install gnuplot   (ya incluido en el Dockerfile)
 plot: analysis
-	@[ -f scaling_analysis.dat ] || $(MAKE) benchmark
+	@[ -f scaling_parallel.dat ] || $(MAKE) benchmark
 	@echo "==> Generando gráfico del sistema..."
 	gnuplot $(SCRIPTS_DIR)/plot_system.gnu
 	@echo "==> Generando gráfico de energía..."

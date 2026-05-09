@@ -19,14 +19,14 @@ set style line 1 lc rgb "#E67E22" lw 2 pt 7 ps 1.2
 set style line 2 lc rgb "#2980B9" lw 2 pt 5 ps 1.2
 set style line 3 lc rgb "#27AE60" lw 2 pt 9 ps 1.2
 
-# benchmark_results.dat tiene columnas:
+# chunk_schedule.dat tiene columnas:
 #   Schedule  ChunkSize  AvgTime  StdDevTime
 # (la primera fila es la cabecera)
 
-plot "benchmark_results.dat" \
-        using ($1 eq "static"  ? $2 : 1/0):3:4 with yerrorbars ls 1 title "static",  \
-     "" using ($1 eq "static"  ? $2 : 1/0):3        with linespoints ls 1 notitle,    \
-     "" using ($1 eq "dynamic" ? $2 : 1/0):3:4 with yerrorbars ls 2 title "dynamic", \
-     "" using ($1 eq "dynamic" ? $2 : 1/0):3        with linespoints ls 2 notitle,    \
-     "" using ($1 eq "guided"  ? $2 : 1/0):3:4 with yerrorbars ls 3 title "guided",  \
-     "" using ($1 eq "guided"  ? $2 : 1/0):3        with linespoints ls 3 notitle
+plot "chunk_schedule.dat" \
+        using (strcol(1) eq "static"  ? $2 : 1/0):3:4 with yerrorbars ls 1 title "static",  \
+        "" using (strcol(1) eq "static"  ? $2 : 1/0):3        with linespoints ls 1 notitle,    \
+        "" using (strcol(1) eq "dynamic" ? $2 : 1/0):3:4 with yerrorbars ls 2 title "dynamic", \
+        "" using (strcol(1) eq "dynamic" ? $2 : 1/0):3        with linespoints ls 2 notitle,    \
+        "" using (strcol(1) eq "guided"  ? $2 : 1/0):3:4 with yerrorbars ls 3 title "guided",  \
+        "" using (strcol(1) eq "guided"  ? $2 : 1/0):3        with linespoints ls 3 notitle
