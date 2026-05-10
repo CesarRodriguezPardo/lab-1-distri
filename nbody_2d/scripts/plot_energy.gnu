@@ -34,8 +34,8 @@ set rmargin 4
 
 # ── Detección dinámica de archivos ────────────────────────────────────────────
 # Modos conocidos (en orden) y sus colores asociados
-labels = "serial parallel_critical parallel_nowait tasks_critical tasks_nowait"
-colors = "#E07B54 #4A90D9 #27AE60 #9B59B6 #F39C12"
+labels = "serial parallel_critical parallel_nowait tasks_critical tasks_nowait parallel_for"
+colors = "#E07B54 #4A90D9 #27AE60 #9B59B6 #F39C12 #34495E"
 
 file_exists(f) = int(system("[ -f '".f."' ] && echo 1 || echo 0"))
 

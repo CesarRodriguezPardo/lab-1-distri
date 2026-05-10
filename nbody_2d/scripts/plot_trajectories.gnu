@@ -23,7 +23,7 @@
 set datafile separator "\t"
 
 # ── Detección dinámica del archivo de trayectorias ────────────────────────────
-labels_traj = "serial parallel_critical parallel_nowait tasks_critical tasks_nowait"
+labels_traj = "serial parallel_critical parallel_nowait tasks_critical tasks_nowait parallel_for"
 file_exists(f) = int(system("[ -f '".f."' ] && echo 1 || echo 0"))
 
 traj_file = ""
