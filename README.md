@@ -62,7 +62,8 @@ Debido a que la aritmética de punto flotante en el estándar IEEE 754 **no es a
 ## 4. Guía de Uso (Compilación y Ejecución)
 
 ### Instrucciones de Compilación
-El proyecto utiliza GNU Make para simplificar eficientemente la compilación.
+El proyecto utiliza GNU Make para simplificar eficientemente la compilación, especificamente con *g++ versión 15*.
+
 ```bash
 # Limpiar el entorno de artefactos pre-existentes
 make clean
