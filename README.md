@@ -7,11 +7,11 @@ Este repositorio contiene una simulación computacional del problema de los N-Cu
 ### Tabla de Integrantes
 | Nombre | Rol | Responsabilidades Principales |
 | :--- | :---: | :--- |
-| **Sofía Gacitúa** | 1 | Coordinación general, diseño inicial de la arquitectura orientada a objetos e implementación de la simulación serial. |
-| **Martín Salinas** | 2 | Diseño e implementación de las directivas OpenMP clásicas, partición de trabajo y mitigación de cuellos de botella en la fase algorítmica $O(N^2)$. |
-| **Nicolás García** | 3 | Desarrollo del módulo de métricas (`MetricsCalculator`), y diseño de perfiles de rendimiento / validación física del sistema computado. |
-| **Sebastián Cassone** | 4 | Diseño e implementación de la suite de pruebas automatizadas (Tests Unitarios, de Integración, Regresión y validaciones de estados físicos) usando Catch2. |
-| **César Rodríguez** | 5 | Automatización del entorno de compilación (Makefile), containerización (Dockerfile), scripting analítico (Gnuplot) y documentación. |
+| **Sofía Gacitúa** | 1 | Coordinación general, diseño inicial de la arquitectura orientada a objetos e implementación de los sistemas de partículas, también responsable de I/O. |
+| **Martín Salinas** | 2 | Diseño e implementación de paralelización, utilizando distintas cláusulas de OpenMP solicitadas. |
+| **Nicolás García** | 3 | Desarrollo serial del sistema y encargado de implementar las físicas y el integrador Euler. |
+| **Sebastián Cassone** | 4 | Desarrollo del módulo de métricas (`MetricsCalculator`), y benchmark para implementación de mediciones. |
+| **César Rodríguez** | 5 | Pruebas unitarias, automatización del entorno de compilación (Makefile), containerización (Dockerfile), scripting analítico (Gnuplot) y documentación. |
 
 ### Hitos del Proyecto
 * **Hito 1 (Semana 1):** Setup de entorno, definición orientada a objetos (Particle, NBodySystem) y simulación puramente matemática serial.
