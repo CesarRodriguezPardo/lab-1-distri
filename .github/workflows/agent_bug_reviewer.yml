@@ -1,0 +1,36 @@
+name: Agent — Bug Reviewer
+
+# Agente revisor de bugs: escaneo diario del codigo CUDA/C++ buscando
+# manejo de errores ausente y desincronizacion host/device.
+# Ver .github/agents/README.md.
+
+on:
+  schedule:
+    - cron: '0 3 * * *'        # todos los dias 03:00 UTC (~medianoche Chile)
+  workflow_dispatch:           # disparo manual desde la pestana Actions
+
+permissions:
+  contents: read               # solo lectura del codigo
+  issues: write                # unico "safe output": crear issues
+
+jobs:
+  bug-reviewer:
+    name: Run bug reviewer agent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio (main)
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run bug reviewer agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python .github/agents/bug_reviewer.py
