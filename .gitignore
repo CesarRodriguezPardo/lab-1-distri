@@ -12,6 +12,10 @@ nbody_2d/*.png
 # Archivos de macOS
 .DS_Store
 
+# Bytecode de Python (agentes)
+__pycache__/
+*.pyc
+
 lab_1.pdf
 
 *.exe

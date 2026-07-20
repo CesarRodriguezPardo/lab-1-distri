@@ -1,0 +1,37 @@
+name: Agent — Documenter
+
+# Agente documentador: revisa README/CHANGELOG y abre issues de
+# documentacion faltante o desactualizada. Ver .github/agents/README.md.
+
+on:
+  schedule:
+    - cron: '0 9 * * 1'        # lunes 09:00 UTC (al menos una vez por semana)
+  push:
+    branches: [main]           # y al fusionar cambios en main
+  workflow_dispatch:           # disparo manual desde la pestana Actions
+
+permissions:
+  contents: read               # solo lectura del codigo
+  issues: write                # unico "safe output": crear issues
+
+jobs:
+  documenter:
+    name: Run documenter agent
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run documenter agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python .github/agents/documenter.py
