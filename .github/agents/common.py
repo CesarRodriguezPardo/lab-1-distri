@@ -30,7 +30,7 @@ import requests
 GITHUB_API = "https://api.github.com"
 GEMINI_URL = (
     "https://generativelanguage.googleapis.com/v1beta/models/"
-    "gemini-1.5-flash:generateContent"
+    "gemini-2.5-flash:generateContent"
 )
 
 MAX_AUTO_ISSUES_PER_WEEK = 5
@@ -72,7 +72,7 @@ def load_event() -> dict:
 # ------------------------------------------------------------------ Gemini --
 
 def get_gemini_response(prompt: str) -> str | None:
-    """Ask Gemini (gemini-1.5-flash).
+    """Ask Gemini (gemini-2.5-flash).
 
     Returns the model text, or None if the key is missing or the call
     fails. Callers must handle None by falling back to rule-based logic.

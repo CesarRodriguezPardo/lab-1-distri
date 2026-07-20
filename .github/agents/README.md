@@ -8,9 +8,9 @@ escalando a humanos lo que requiere juicio técnico. Viven en
 
 | Agente | Herramienta | Frecuencia | Criterio mecánico | Criterio humano |
 |---|---|---|---|---|
-| **Documentador** (`documenter.py`) | Python 3 + reglas + Gemini 1.5 Flash (opcional) | Semanal (lunes 09:00 UTC) y al fusionar a `main` | Typo, enlace roto/vacío, sección faltante con plantilla obvia (CHANGELOG, URL del repo) → abre issue con fix sugerido | Explicar un kernel, decisiones de diseño → issue con `Requiere intervención humana: <motivo>` |
-| **Revisor de bugs** (`bug_reviewer.py`) | Python 3 + reglas + Gemini 1.5 Flash (opcional) | Diaria (03:00 UTC, cron) sobre `main` | Falta `CUDA_CHECK` tras API CUDA, kernel sin `cudaGetLastError` → issue con parche sugerido | Afecta física, API pública, sincronización host/device en mediciones → issue `Requiere intervención humana` |
-| **Revisor de MRs** (`mr_reviewer.py`) | Python 3 + API de GitHub + Gemini 1.5 Flash (opcional) | Al abrir/actualizar PR, **después de que CI termine** (`workflow_run`) | Solo documentación/formato/tests, CI verde, issue vinculado → comentario "mecánico y mergeable" | Cambios en kernels, física o API pública, o PR sin issue → comentario "requiere revisión humana" |
+| **Documentador** (`documenter.py`) | Python 3 + reglas + Gemini 2.5 Flash (opcional) | Semanal (lunes 09:00 UTC) y al fusionar a `main` | Typo, enlace roto/vacío, sección faltante con plantilla obvia (CHANGELOG, URL del repo) → abre issue con fix sugerido | Explicar un kernel, decisiones de diseño → issue con `Requiere intervención humana: <motivo>` |
+| **Revisor de bugs** (`bug_reviewer.py`) | Python 3 + reglas + Gemini 2.5 Flash (opcional) | Diaria (03:00 UTC, cron) sobre `main` | Falta `CUDA_CHECK` tras API CUDA, kernel sin `cudaGetLastError` → issue con parche sugerido | Afecta física, API pública, sincronización host/device en mediciones → issue `Requiere intervención humana` |
+| **Revisor de MRs** (`mr_reviewer.py`) | Python 3 + API de GitHub + Gemini 2.5 Flash (opcional) | Al abrir/actualizar PR, **después de que CI termine** (`workflow_run`) | Solo documentación/formato/tests, CI verde, issue vinculado → comentario "mecánico y mergeable" | Cambios en kernels, física o API pública, o PR sin issue → comentario "requiere revisión humana" |
 
 ## Guardarraíles (inspirados en GitHub Agentic Workflows)
 
