@@ -1,0 +1,42 @@
+name: Agent — MR Reviewer
+
+# Agente revisor de merge requests: comenta en el PR DESPUES de que el
+# pipeline de CI termina (evento workflow_run), nunca antes.
+# Clasifica el PR como mecanico o "requiere revision humana".
+# Nunca fusiona. Ver .github/agents/README.md.
+
+on:
+  workflow_run:
+    workflows: ["CI — N-Body 2D"]   # se dispara cuando CI termina
+    types: [completed]
+  workflow_dispatch:                # disparo manual (requiere PR en contexto)
+
+permissions:
+  contents: read                    # solo lectura del codigo
+  pull-requests: write              # unico "safe output": comentar en PRs
+
+jobs:
+  mr-reviewer:
+    name: Run MR reviewer agent
+    runs-on: ubuntu-latest
+    # Solo actua cuando el CI termino por un pull request (no por push a main)
+    if: >
+      github.event_name == 'workflow_dispatch' ||
+      github.event.workflow_run.event == 'pull_request'
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install requests
+
+      - name: Run MR reviewer agent
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
+        run: python .github/agents/mr_reviewer.py
