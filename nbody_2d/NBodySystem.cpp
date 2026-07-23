@@ -206,6 +206,19 @@ void NBodySystem::computeAccelerationsGpu(int variant, int blockSize) {
             nBodies,
             blockSize
         );
+    } else if (variant == 1) {
+        // Variante con tiling: un kernel para todo, pero con memoria compartida
+        launchComputeAccelerationsKernelShared(
+            buffer.d_mass,
+            buffer.d_x,
+            buffer.d_y,
+            buffer.d_ax,
+            buffer.d_ay,
+            G_const,
+            eps,
+            nBodies,
+            blockSize
+        );
     } else {
         std::cerr << "Variante de GPU desconocida: " << variant << std::endl;
         return;
