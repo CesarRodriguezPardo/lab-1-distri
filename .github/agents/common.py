@@ -180,7 +180,7 @@ def agent_issues_this_week(title_prefix: str) -> int:
         params={
             "labels": "agent",
             "since": since,
-            "state": "all",
+            "state": "open",
             "per_page": 100,
         },
         timeout=REQUEST_TIMEOUT,
@@ -188,7 +188,9 @@ def agent_issues_this_week(title_prefix: str) -> int:
     if resp.status_code != 200:
         return 0
     return sum(
-        1 for i in resp.json() if i.get("title", "").startswith(title_prefix)
+        1 for i in resp.json()
+        if i.get("title", "").startswith(title_prefix)
+        and i.get("created_at", "") >= since
     )
 
 
