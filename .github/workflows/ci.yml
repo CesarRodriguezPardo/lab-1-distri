@@ -1,4 +1,4 @@
-name: CI — N-Body 2D (CPU)
+name: CI — N-Body 2D
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Build, compile, and CPU test
+    name: Build & Test in container
     runs-on: ubuntu-latest
 
     steps:
