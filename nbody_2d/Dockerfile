@@ -1,8 +1,9 @@
-# Base image for the GitHub Actions workflow (and local parity): Debian + C++
-# build tools + Python visualization stack.
+# Base image for the GitHub Actions workflow (and local parity): CUDA devel
+# image + C++ build tools.
+# La suite `make test` corre en CPU; el soporte GPU requiere host NVIDIA.
 # The workflow mounts the repo at /workspace and runs make there;
 # this file does not copy or build the project itself.
-FROM debian:bookworm-slim
+FROM nvidia/cuda:12.4.1-devel-ubuntu22.04
 
 ENV DEBIAN_FRONTEND=noninteractive
 

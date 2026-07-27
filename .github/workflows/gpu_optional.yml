@@ -1,0 +1,33 @@
+name: GPU — Optional smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gpu-smoke:
+    name: Optional GPU smoke run
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Construir imagen CUDA opcional
+        run: docker build -t nbody-2d-gpu -f nbody_2d/Dockerfile.cuda nbody_2d
+
+      - name: Verificar nvcc en la imagen CUDA
+        run: docker run --rm nbody-2d-gpu nvcc --version
+
+      - name: Verificar host GPU
+        run: nvidia-smi
+
+      - name: Compilar y ejecutar tests CPU dentro de la imagen CUDA
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/nbody_2d:/workspace" \
+            -w /workspace \
+            nbody-2d-gpu \
+            bash -lc "make test"
