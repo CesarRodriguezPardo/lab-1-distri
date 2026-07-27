@@ -183,7 +183,7 @@ Ejemplos:
 | 1 aprobación humana mínima | Revisión cruzada del equipo |
 | CI verde obligatorio | `make test` debe pasar antes de fusionar |
 | Commits con prefijo (`feat:`, `fix:`) | Historial profesional y legible |
-| NO tocar `.github/`, `CHANGELOG.md` ni `README.md` | Ya están configurados; el README lo actualiza el equipo al final |
+| NO tocar `.github/`, `CHANGELOG.md` ni `README.md` (salvo PRs etiquetados `agent:auto-fix`) | Ya estan configurados; el README lo actualiza el equipo al final |
 
 ## 8. Cómo probar localmente
 

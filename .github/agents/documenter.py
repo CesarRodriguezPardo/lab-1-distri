@@ -103,11 +103,8 @@ def rule_based_findings() -> list[dict]:
             })
 
         # Empty markdown links like [text]()
-        empty_links = re.findall(r"\[[^\]]+\]\(\s*\)", readme)
-        if empty_links:
-            new_content = readme
-            for link in empty_links:
-                new_content = new_content.replace(link, "`" + link[1:-3] + "`")
+        if re.search(r"\[[^\]]+\]\(\s*\)", readme):
+            new_content = re.sub(r"\[([^\]]+)\]\(\s*\)", r"`\1`", readme)
             findings.append({
                 "kind": "mechanical",
                 "title": f"{TITLE_PREFIX} Enlaces vacios en README.md",
@@ -165,8 +162,10 @@ def rule_based_findings() -> list[dict]:
             )
             # Append after the Keep a Changelog reference line or at the end
             if "keepachangelog" in changelog.lower():
-                idx = changelog.find("keepachangelog")
-                idx = changelog.find("\n\n", idx) + 2
+                lower = changelog.lower()
+                idx = lower.find("keepachangelog")
+                sep = changelog.find("\n\n", idx)
+                idx = (sep + 2) if sep != -1 else len(changelog)
             else:
                 idx = changelog.find("##") if "##" in changelog else len(changelog)
             if idx < 0:
@@ -345,8 +344,9 @@ def main() -> int:
             print("[documenter] Limite de 5 issues/PRs por ejecucion alcanzado.")
             break
 
-        if open_issue_exists(f["title"]):
-            print(f"[documenter] Ya existe issue abierto: {f['title']}")
+        dedup_title = f.get("pr_title") or f["title"]
+        if open_issue_exists(dedup_title):
+            print(f"[documenter] Ya existe issue/PR abierto: {dedup_title}")
             continue
 
         # Mechanical + has fix data -> try auto-PR first
@@ -361,7 +361,7 @@ def main() -> int:
 
         body = f["body"] + (
             "\n\n---\n_Creado por el agente documentador. "
-            "Maximo 5 issues automaticos por semana._"
+            "Maximo 5 issues por ejecucion por semana._"
         )
         if create_github_issue(f["title"], body, ISSUE_LABELS):
             created += 1
