@@ -1,4 +1,6 @@
 #include "NBodySystem.h"
+#include "kernels/accelerations.cuh"
+#include "CudaBuffer.h"
 #include <cmath>
 #include <iostream>
 #include <random>
@@ -174,6 +176,57 @@ void NBodySystem::computeAccelerations(int taskType) {
             }
         }
     }
+}
+
+void NBodySystem::computeAccelerationsGpu() {
+    //int defaultBlockSize = 256; // Tamaño de bloque por defecto
+    //computeAccelerationsGpu(0, defaultBlockSize);
+    computeAccelerationsGpu(0); // Llama a la variante con el tamaño de bloque por defecto
+}
+
+void NBodySystem::computeAccelerationsGpu(int variant) {
+    int defaultBlockSize = 256; // Tamaño de bloque por defecto
+    computeAccelerationsGpu(variant, defaultBlockSize);
+}
+
+void NBodySystem::computeAccelerationsGpu(int variant, int blockSize) {
+    int nBodies = bodies.size();
+    CudaBuffer buffer(nBodies, bodies);
+
+    if (variant == 0) {
+        // Variante simple: un kernel para todo
+        launchComputeAccelerationsKernel(
+            buffer.d_mass,
+            buffer.d_x,
+            buffer.d_y,
+            buffer.d_ax,
+            buffer.d_ay,
+            G_const,
+            eps,
+            nBodies,
+            blockSize
+        );
+    } else if (variant == 1) {
+        // Variante con tiling: un kernel para todo, pero con memoria compartida
+        launchComputeAccelerationsKernelShared(
+            buffer.d_mass,
+            buffer.d_x,
+            buffer.d_y,
+            buffer.d_ax,
+            buffer.d_ay,
+            G_const,
+            eps,
+            nBodies,
+            blockSize
+        );
+    } else {
+        std::cerr << "Variante de GPU desconocida: " << variant << std::endl;
+        return;
+    }
+
+    // Recuperar aceleraciones del device al host
+    buffer.retrieveAccelerations(bodies);
+
 }
 
 

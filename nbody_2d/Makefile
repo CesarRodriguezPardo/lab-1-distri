@@ -3,7 +3,24 @@ OMPFLAGS = -fopenmp
 
 # Compilador y flags base
 CXX      = g++
-CXXFLAGS = -std=c++17 -O2 -Wall -Wextra $(OMPFLAGS)
+NVCC = nvcc
+
+INCLUDES = -I. -Ikernels
+
+NVCCFLAGS = -O3 -std=c++17 $(INCLUDES) \
+            -Xcompiler "-Wall,-Wextra,-fopenmp"
+
+CXXFLAGS = -O3 -std=c++17 -Wall -Wextra \
+           $(OMPFLAGS) $(INCLUDES)
+
+LDFLAGS = -lcudart -Xcompiler -fopenmp
+
+# ─────────────────────────────────────────────────────────────
+#  Directorios
+# ─────────────────────────────────────────────────────────────
+
+SCRIPTS_DIR = scripts
+CUDA_DIR = kernels
 
 # ─────────────────────────────────────────────────────────────
 #  Fuentes
@@ -17,6 +34,9 @@ SRCS = Particle.cpp \
        MetricsCalculator.cpp \
        Benchmark.cpp
 
+CU_SRCS = \
+	$(CUDA_DIR)/accelerations.cu
+
 # Fuentes de tests:
 #  - catch_amalgamated.cpp  → implementación de Catch2 v3 (incluye main())
 #  - test_Particle.cpp      → pruebas unitarias de Particle
@@ -27,9 +47,6 @@ TEST_SRCS = tests/catch_amalgamated.cpp \
             tests/test_MetricsCalculator.cpp \
             tests/test_Integrator.cpp
 
-# Directorio de scripts Gnuplot
-SCRIPTS_DIR = scripts
-
 # ─────────────────────────────────────────────────────────────
 #  Targets
 # ─────────────────────────────────────────────────────────────
@@ -38,11 +55,11 @@ SCRIPTS_DIR = scripts
 # Target por defecto: compila el binario principal
 all: nbody
 
-nbody: main.cpp $(SRCS)
-	$(CXX) $(CXXFLAGS) $^ -o $@
+nbody: main.cpp $(SRCS) $(CU_SRCS)
+	$(NVCC) $(NVCCFLAGS) $^ -o $@ $(LDFLAGS)
 
-benchmark: benchmark_main.cpp $(SRCS)
-	$(CXX) $(CXXFLAGS) $^ -o benchmark
+benchmark: benchmark_main.cpp $(SRCS) $(CU_SRCS)
+	$(NVCC) $(NVCCFLAGS) $^ -o benchmark $(LDFLAGS)
 	./benchmark
 
 # make test:
@@ -50,8 +67,8 @@ benchmark: benchmark_main.cpp $(SRCS)
 #      (catch_amalgamated.cpp provee el main(), NO se usa main.cpp)
 #   2. Ejecuta ./test_runner → Catch2 reporta resultados por stdout
 #   3. Exit code != 0 si algún test falla → CI detecta el fallo
-test: $(SRCS) $(TEST_SRCS)
-	$(CXX) $(CXXFLAGS) $^ -o test_runner
+test: $(SRCS) $(CU_SRCS) $(TEST_SRCS)
+	$(NVCC) $(NVCCFLAGS) $^ -o test_runner $(LDFLAGS)
 	./test_runner
 
 # make analysis:

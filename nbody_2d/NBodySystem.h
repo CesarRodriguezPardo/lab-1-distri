@@ -22,6 +22,11 @@ class NBodySystem {
         void computeAccelerations(int scheduleType, int chunkSize, bool useCollapse); // collapse(2) N×N
         void computeAccelerations(int taskType);
 
+        // CUDA
+        void computeAccelerationsGpu();
+        void computeAccelerationsGpu(int variant);
+        void computeAccelerationsGpu(int variant,int blockSize);
+
         const std::vector<Particle>& getBodies() const;
         int getCount() const;
         void randomSystem(int amount, int seed = 1);
