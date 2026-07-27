@@ -32,6 +32,7 @@ from common import (
     open_issue_exists,
     rate_limit_ok,
     repo_full_name,
+    require_gemini,
     slugify,
 )
 
@@ -325,6 +326,7 @@ def _open_auto_fix_pr(finding: dict) -> bool:
 
 def main() -> int:
     print("== Documenter agent ==")
+    require_gemini()
     if not rate_limit_ok(TITLE_PREFIX):
         return 0
 

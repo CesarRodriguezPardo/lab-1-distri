@@ -52,6 +52,21 @@ def gemini_enabled() -> bool:
     return bool(os.environ.get("GEMINI_API_KEY"))
 
 
+def require_gemini() -> None:
+    """Exit with error if Gemini key is missing in CI. In local dev, warn only."""
+    if gemini_enabled():
+        return
+    msg = (
+        "GEMINI_API_KEY no configurado."
+        " En CI agrega la key en Settings > Secrets > Actions > GEMINI_API_KEY."
+        " En local exportala: export GEMINI_API_KEY=tu_key"
+    )
+    if os.environ.get("GITHUB_ACTIONS") == "true":
+        print(f"[fatal] {msg}")
+        raise SystemExit(1)
+    print(f"[warning] {msg} Modo local: se usaran solo reglas programaticas.")
+
+
 def _headers() -> dict:
     return {
         "Authorization": f"Bearer {os.environ['GH_TOKEN']}",

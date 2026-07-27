@@ -30,6 +30,7 @@ from common import (
     get_pr,
     get_pr_files,
     load_event,
+    require_gemini,
 )
 
 DOC_EXTENSIONS = (".md", ".txt", ".rst")
@@ -113,6 +114,7 @@ Archivos del PR:
 
 def main() -> int:
     print("== MR reviewer agent ==")
+    require_gemini()
     pr_number, ci_conclusion, event_name = resolve_pr_context()
     if pr_number is None:
         return 0
