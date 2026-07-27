@@ -1,4 +1,4 @@
-name: CI — N-Body 2D
+name: CI — N-Body 2D (CPU)
 
 on:
   push:
@@ -11,7 +11,7 @@ permissions:
 
 jobs:
   build-and-test:
-    name: Build & Test in container
+    name: Build, compile, and CPU test
     runs-on: ubuntu-latest
 
     steps:
@@ -21,7 +21,7 @@ jobs:
       - name: Construir imagen base local
         run: docker build -t nbody-2d-ci -f nbody_2d/Dockerfile nbody_2d
 
-      - name: Compilar y ejecutar pruebas unitarias (make test)
+      - name: Compilar y ejecutar pruebas unitarias CPU (make test)
         run: |
           docker run --rm \
             -v "${{ github.workspace }}/nbody_2d:/workspace" \
@@ -36,6 +36,10 @@ jobs:
             -w /workspace \
             nbody-2d-ci \
             bash -lc "make all"
+
+      - name: Nota de alcance
+        run: |
+          echo "Este CI valida compilación y tests CPU. Benchmarks finales y mediciones GPU se ejecutan fuera de CI."
 
       - name: Guardar artefacto de test
         uses: actions/upload-artifact@v4

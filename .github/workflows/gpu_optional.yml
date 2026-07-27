@@ -1,0 +1,23 @@
+name: GPU — Optional smoke
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  gpu-smoke:
+    name: Optional GPU smoke run
+    runs-on: self-hosted
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Verificar host GPU
+        run: nvidia-smi
+
+      - name: Compilar y ejecutar tests CPU
+        working-directory: nbody_2d
+        run: make test
