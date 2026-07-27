@@ -10,6 +10,7 @@
 //   E) Full simulation             (1000 pasos por modo: serial/parallel/tasks)
 // ─────────────────────────────────────────────────────────────
 #include <iostream>
+#include <fstream>
 #include <sstream>
 #include <chrono>
 #include <omp.h>
@@ -23,6 +24,42 @@ static const int    N_PARTICLES   = 1000;   // partículas en el sistema
 static const int    BENCH_SEED    = 42;     // semilla reproducible
 static const int    N_REPS        = 20;     // repeticiones por lote
 static const int    FULL_SIM_STEPS = 1000; // pasos de la simulación final (rango 500–2000)
+
+static void writeGpuBenchmarkScaffold() {
+    std::ofstream out("gpu_benchmark_plan.dat");
+    if (!out.is_open()) {
+        std::cerr << "No se pudo abrir gpu_benchmark_plan.dat\n";
+        return;
+    }
+
+    out << "Phase Status Artifact Notes\n";
+    out << "kernel_only pending gpu_kernel_only.dat Requires computeAccelerationsGpu() and nvcc build\n";
+    out << "end_to_end pending gpu_end_to_end.dat Requires host/device transfer pipeline\n";
+    out << "cpu_vs_gpu pending cpu_vs_gpu.dat Requires GPU reference implementation and tolerances\n";
+    out << "benchmark_kernel_only available scaling_parallel.dat CPU baseline already measured\n";
+    out << "benchmark_end_to_end available full_simulation_cpu.dat CPU baseline already measured\n";
+}
+
+static void writePendingGpuArtifacts() {
+    std::ofstream kernelOnly("gpu_kernel_only.dat");
+    std::ofstream endToEnd("gpu_end_to_end.dat");
+    std::ofstream cpuVsGpu("cpu_vs_gpu.dat");
+
+    if (kernelOnly.is_open()) {
+        kernelOnly << "Phase Status Value Notes\n";
+        kernelOnly << "kernel_only pending NA GPU kernels are not implemented yet\n";
+    }
+
+    if (endToEnd.is_open()) {
+        endToEnd << "Phase Status Value Notes\n";
+        endToEnd << "end_to_end pending NA Host/device transfer path is not implemented yet\n";
+    }
+
+    if (cpuVsGpu.is_open()) {
+        cpuVsGpu << "Metric Status Value Notes\n";
+        cpuVsGpu << "cpu_vs_gpu pending NA Compare CPU reference against future GPU implementation\n";
+    }
+}
 
 int main() {
     // Detectar número máximo de hilos disponibles en el sistema
@@ -183,6 +220,14 @@ int main() {
         simFull.processBodies(static_cast<std::ostream&>(devNull2), 0 /*taskType*/, 2 /*nowait*/);
     });
 
+    std::ofstream outFull("full_simulation_cpu.dat");
+    if (outFull.is_open()) {
+        outFull << "Mode TotalSeconds MsPerStep SpeedupVsSerial\n";
+        outFull << "serial " << tSerial << " " << (tSerial / FULL_SIM_STEPS * 1000.0) << " 1.0\n";
+        outFull << "parallel " << tParallel << " " << (tParallel / FULL_SIM_STEPS * 1000.0) << " " << (tSerial / tParallel) << "\n";
+        outFull << "tasks " << tTasks << " " << (tTasks / FULL_SIM_STEPS * 1000.0) << " " << (tSerial / tTasks) << "\n";
+    }
+
     std::cout << "\nResumen full simulation:\n"
               << "  Speedup parallel vs serial: " << tSerial / tParallel << "x\n"
               << "  Speedup tasks vs serial   : " << tSerial / tTasks    << "x\n";
@@ -191,7 +236,16 @@ int main() {
               << "  scaling_parallel.dat\n"
               << "  scaling_tasks.dat\n"
               << "  private_vs_shared.dat\n"
-              << "  chunk_schedule.dat\n";
+              << "  chunk_schedule.dat\n"
+              << "  full_simulation_cpu.dat\n";
+
+    writeGpuBenchmarkScaffold();
+    writePendingGpuArtifacts();
+
+    std::cout << "  gpu_benchmark_plan.dat\n"
+              << "  gpu_kernel_only.dat\n"
+              << "  gpu_end_to_end.dat\n"
+              << "  cpu_vs_gpu.dat\n";
 
     return 0;
 }

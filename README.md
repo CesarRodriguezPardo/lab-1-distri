@@ -101,6 +101,19 @@ Sirve para compilar el proyecto y ejecutar `make test` en CPU sin usar GPU, pero
 - Driver NVIDIA compatible con CUDA 12.x.
 - `nvidia-container-toolkit` configurado si se va a pasar la GPU al contenedor.
 
+Para el smoke opcional de GPU se usa una imagen separada en [nbody_2d/Dockerfile.cuda](nbody_2d/Dockerfile.cuda), que permite verificar `nvcc` sin tocar el gate CPU principal.
+
+### Benchmark GPU en preparación
+
+El benchmark CPU sigue siendo el baseline actual. Al ejecutar `make benchmark` también se generan artefactos de planificación para la futura parte CUDA:
+
+- `gpu_benchmark_plan.dat`
+- `gpu_kernel_only.dat`
+- `gpu_end_to_end.dat`
+- `cpu_vs_gpu.dat`
+
+Esos archivos dejan preparado el esquema de comparación pedido por el laboratorio, pero la implementación GPU real sigue pendiente.
+
 ### Reproducibilidad
 
 Para reproducir exactamente nuestros laboratorios de rendimiento:
