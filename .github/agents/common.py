@@ -207,3 +207,148 @@ def get_pr_files(pr_number: int) -> list[dict]:
     )
     resp.raise_for_status()
     return resp.json()
+
+
+# ------------------------------------------------------ auto-fix PR helpers --
+
+
+def slugify(text: str, max_len: int = 40) -> str:
+    import re
+    s = re.sub(r"[^\w\s-]", "", text.lower())
+    s = re.sub(r"[-\s]+", "-", s).strip("-")
+    return s[:max_len]
+
+
+def get_main_sha() -> str | None:
+    """Return the SHA of the latest commit on main."""
+    if not has_github_token():
+        return None
+    resp = requests.get(
+        f"{GITHUB_API}/repos/{repo_full_name()}/git/refs/heads/main",
+        headers=_headers(),
+        timeout=REQUEST_TIMEOUT,
+    )
+    if resp.status_code != 200:
+        print(f"[common] get_main_sha failed ({resp.status_code})")
+        return None
+    return resp.json()["object"]["sha"]
+
+
+def create_branch(branch_name: str, base_sha: str) -> bool:
+    """Create a new branch pointing to base_sha."""
+    if not has_github_token():
+        print(f"[dry-run] Would create branch: {branch_name}")
+        return False
+    resp = requests.post(
+        f"{GITHUB_API}/repos/{repo_full_name()}/git/refs",
+        headers=_headers(),
+        json={"ref": f"refs/heads/{branch_name}", "sha": base_sha},
+        timeout=REQUEST_TIMEOUT,
+    )
+    ok = resp.status_code in (200, 201)
+    if ok:
+        print(f"[common] Branch created: {branch_name}")
+    else:
+        print(f"[common] Branch creation failed ({resp.status_code}): {resp.text}")
+    return ok
+
+
+def get_file_content(path: str, ref: str = "main") -> tuple[str | None, str | None]:
+    """Return (decoded_content, sha) of a file, or (None, None)."""
+    if not has_github_token():
+        return None, None
+    resp = requests.get(
+        f"{GITHUB_API}/repos/{repo_full_name()}/contents/{path}",
+        headers=_headers(),
+        params={"ref": ref},
+        timeout=REQUEST_TIMEOUT,
+    )
+    if resp.status_code != 200:
+        return None, None
+    data = resp.json()
+    content = data.get("content", "")
+    try:
+        import base64
+        decoded = base64.b64decode(content).decode("utf-8")
+    except Exception:
+        decoded = content
+    return decoded, data.get("sha")
+
+
+def create_or_update_file(
+    path: str,
+    content: str,
+    message: str,
+    branch: str,
+    sha: str | None = None,
+) -> bool:
+    """Commit a file on a branch via the Contents API. Returns True on success."""
+    if not has_github_token():
+        print(f"[dry-run] Would commit to {path} on {branch}")
+        return False
+    try:
+        import base64
+        encoded = base64.b64encode(content.encode("utf-8")).decode("utf-8")
+    except Exception:
+        return False
+    body: dict = {
+        "message": message,
+        "content": encoded,
+        "branch": branch,
+    }
+    if sha:
+        body["sha"] = sha
+    resp = requests.put(
+        f"{GITHUB_API}/repos/{repo_full_name()}/contents/{path}",
+        headers=_headers(),
+        json=body,
+        timeout=REQUEST_TIMEOUT,
+    )
+    ok = resp.status_code in (200, 201)
+    if ok:
+        print(f"[common] Committed {path} on branch {branch}")
+    else:
+        print(f"[common] Commit failed ({resp.status_code}): {resp.text}")
+    return ok
+
+
+def create_pull_request(
+    head_branch: str,
+    title: str,
+    body: str,
+    base: str = "main",
+    labels: list[str] | None = None,
+) -> bool:
+    """Open a pull request from head_branch to base."""
+    if not has_github_token():
+        print(f"[dry-run] Would open PR: {title} ({head_branch} -> {base})")
+        return False
+    pr_labels: list[str] = []
+    if labels:
+        pr_labels = labels
+    resp = requests.post(
+        f"{GITHUB_API}/repos/{repo_full_name()}/pulls",
+        headers=_headers(),
+        json={
+            "title": title,
+            "head": head_branch,
+            "base": base,
+            "body": body,
+        },
+        timeout=REQUEST_TIMEOUT,
+    )
+    ok = resp.status_code == 201
+    if ok:
+        pr = resp.json()
+        print(f"[common] PR created: #{pr['number']} -- {title}")
+        # Apply labels separately (labels aren't in the PR creation API)
+        if pr_labels:
+            requests.post(
+                f"{GITHUB_API}/repos/{repo_full_name()}/issues/{pr['number']}/labels",
+                headers=_headers(),
+                json={"labels": pr_labels},
+                timeout=REQUEST_TIMEOUT,
+            )
+    else:
+        print(f"[common] PR creation failed ({resp.status_code}): {resp.text}")
+    return ok

@@ -11,8 +11,9 @@ on:
   workflow_dispatch:           # disparo manual desde la pestana Actions
 
 permissions:
-  contents: read               # solo lectura del codigo
-  issues: write                # unico "safe output": crear issues
+  contents: write              # crear ramas y commits de auto-fix
+  issues: write                # crear issues (fallback / hallazgos humanos)
+  pull-requests: write         # abrir PRs de auto-fix
 
 jobs:
   documenter:
