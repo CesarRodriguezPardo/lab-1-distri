@@ -168,6 +168,9 @@ def rule_based_findings() -> list[dict]:
                 idx = (sep + 2) if sep != -1 else len(changelog)
             else:
                 idx = changelog.find("##") if "##" in changelog else len(changelog)
+            if idx < 0:
+                idx = len(changelog)
+            new_content = changelog[:idx] + new_content + changelog[idx:]
             findings.append({
                 "kind": "mechanical",
                 "title": f"{TITLE_PREFIX} CHANGELOG.md sin entrada para 2.0.0-lab2",
