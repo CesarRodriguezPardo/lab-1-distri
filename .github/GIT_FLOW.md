@@ -10,17 +10,19 @@ sección 6 del enunciado del Laboratorio 2.
 - ❌ Sin push directo (incluye administradores).
 - ✅ Merge solo vía Pull Request.
 - ✅ Al menos **1 revisión humana** del equipo antes de fusionar.
-- ✅ **CI verde** requerido (`CI — N-Body 2D`: compilación + `make test`).
+- ✅ **CI verde** requerido (`CI — N-Body 2D`: compilación + `make test` en CPU).
+- ✅ Los job(s) de GPU son opcionales y no bloquean el merge.
+- ✅ Las mediciones finales de performance no se aceptan desde CI; solo desde el clúster DIINF.
 - ✅ Ramas actualizadas antes de mergear.
 - ✅ Conversaciones resueltas antes de mergear.
 - ✅ Eliminación automática de ramas fusionadas.
 
 ## 2. Convención de ramas
 
-| Tipo | Patrón | Uso |
-|---|---|---|
+| Tipo          | Patrón             | Uso                               |
+| ------------- | ------------------ | --------------------------------- |
 | Funcionalidad | `feature/<nombre>` | Kernels, agentes, CHANGELOG, etc. |
-| Corrección | `fix/<nombre>` | Bugs en código, tests o CI |
+| Corrección    | `fix/<nombre>`     | Bugs en código, tests o CI        |
 
 ## 3. Commits convencionales
 
@@ -66,8 +68,18 @@ git push -u origin feature/<nombre>
 - `CHANGELOG.md` sigue el formato [Keep a Changelog](https://keepachangelog.com/).
 - Al entregar: tag `v2.0.0-lab2` en `main` con notas de release que resumen
   cambios CUDA, CI y agentes.
+- Existe un workflow manual para crear el tag y la release desde `main`:
+  [.github/workflows/release_tag.yml](.github/workflows/release_tag.yml).
 
-## 8. Agentes de IA
+## 8. CI y performance
+
+- El pipeline de GitHub Actions debe verificar compilación y `make test` en CPU en cada MR/PR.
+- Cualquier validación con GPU se considera opcional y no debe ser requisito de merge.
+- Los benchmarks finales y las mediciones oficiales de performance se ejecutan solo en el clúster DIINF.
+- El smoke GPU opcional vive en [.github/workflows/gpu_optional.yml](.github/workflows/gpu_optional.yml).
+- Los benchmarks del clúster viven en [.github/workflows/benchmarks_diinf.yml](.github/workflows/benchmarks_diinf.yml).
+
+## 9. Agentes de IA
 
 Tres agentes automatizan documentación, revisión de bugs y revisión de PRs.
 Viven en `.github/agents/` y `.github/workflows/`. Documentación completa en

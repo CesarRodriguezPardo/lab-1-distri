@@ -1,0 +1,30 @@
+name: Benchmarks — DIINF cluster
+
+on:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  benchmark:
+    name: Run benchmarks on cluster
+    runs-on: self-hosted
+    timeout-minutes: 180
+
+    steps:
+      - name: Checkout del repositorio
+        uses: actions/checkout@v4
+
+      - name: Compilar y ejecutar benchmark
+        working-directory: nbody_2d
+        run: make benchmark
+
+      - name: Subir artefactos de benchmark
+        uses: actions/upload-artifact@v4
+        with:
+          name: diinf-benchmarks
+          path: |
+            nbody_2d/*.dat
+            nbody_2d/benchmark
+          retention-days: 14

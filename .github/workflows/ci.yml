@@ -8,61 +8,38 @@ on:
 
 permissions:
   contents: read
-  packages: read
 
 jobs:
-  ensure-base-image:
-    name: Verify GHCR base image exists
-    runs-on: ubuntu-latest
-    outputs:
-      image: ${{ steps.resolve.outputs.image }}
-    steps:
-      - id: resolve
-        name: Resolve GHCR image reference
-        run: |
-          repo_lc=$(echo '${{ github.repository }}' | tr '[:upper:]' '[:lower:]')
-          img="ghcr.io/${repo_lc}:base"
-          echo "image=${img}" >> "$GITHUB_OUTPUT"
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.repository_owner }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Pull base image from GHCR
-        run: |
-          IMAGE="${{ steps.resolve.outputs.image }}"
-          echo "Pulling: ${IMAGE}"
-          if docker pull "${IMAGE}"; then
-            echo "Base image is available."
-            exit 0
-          fi
-          echo "::error::Could not pull base image. Run build-base-container first."
-          exit 1
-
   build-and-test:
     name: Build & Test in container
-    needs: ensure-base-image
     runs-on: ubuntu-latest
-    container:
-      image: ${{ needs.ensure-base-image.outputs.image }}
-      credentials:
-        username: ${{ github.repository_owner }}
-        password: ${{ secrets.GITHUB_TOKEN }}
 
     steps:
       - name: Checkout del repositorio
         uses: actions/checkout@v4
 
-      - name: Compilar y ejecutar pruebas unitarias (make test)
-        working-directory: nbody_2d
-        run: make test
+      - name: Construir imagen base local
+        run: docker build -t nbody-2d-ci -f nbody_2d/Dockerfile nbody_2d
+
+      - name: Compilar y ejecutar pruebas unitarias CPU (make test)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/nbody_2d:/workspace" \
+            -w /workspace \
+            nbody-2d-ci \
+            bash -lc "make test"
 
       - name: Compilar binario principal (make all)
-        working-directory: nbody_2d
-        run: make all
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/nbody_2d:/workspace" \
+            -w /workspace \
+            nbody-2d-ci \
+            bash -lc "make all"
+
+      - name: Nota de alcance
+        run: |
+          echo "Este CI valida compilación y tests CPU. Benchmarks finales y mediciones GPU se ejecutan fuera de CI."
 
       - name: Guardar artefacto de test
         uses: actions/upload-artifact@v4

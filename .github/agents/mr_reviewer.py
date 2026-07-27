@@ -30,6 +30,7 @@ from common import (
     get_pr,
     get_pr_files,
     load_event,
+    require_gemini,
 )
 
 DOC_EXTENSIONS = (".md", ".txt", ".rst")
@@ -113,6 +114,7 @@ Archivos del PR:
 
 def main() -> int:
     print("== MR reviewer agent ==")
+    require_gemini()
     pr_number, ci_conclusion, event_name = resolve_pr_context()
     if pr_number is None:
         return 0
@@ -123,8 +125,15 @@ def main() -> int:
     pr = get_pr(pr_number) if os.environ.get("GH_TOKEN") else {}
     files = get_pr_files(pr_number) if os.environ.get("GH_TOKEN") else []
 
-    kind, reasons = classify(files)
-    kind = gemini_second_opinion(files, kind)
+    kind_rules, reasons = classify(files)
+    kind = gemini_second_opinion(files, kind_rules)
+
+    gemini_note = ""
+    if kind != kind_rules:
+        gemini_note = (
+            f"\n- Gemini discrepo de las reglas: reglas → `{kind_rules}`, "
+            f"Gemini → `{kind}`"
+        )
 
     ci_ok = ci_conclusion == "success"
     if ci_conclusion is None:
@@ -158,7 +167,7 @@ Ejecutado **despues** del pipeline de CI (evento `{event_name}`).
 
 - {ci_line}
 - {issue_line}
-- Clasificacion: **{verdict}**
+- Clasificacion: **{verdict}**{gemini_note}
 
 """
     if reasons and kind == "human":
