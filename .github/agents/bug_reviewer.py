@@ -31,6 +31,7 @@ from common import (
     get_gemini_response,
     open_issue_exists,
     rate_limit_ok,
+    require_gemini,
 )
 
 TITLE_PREFIX = "[agent:bug]"
@@ -157,6 +158,7 @@ Hallazgos:
 
 def main() -> int:
     print("== Bug reviewer agent ==")
+    require_gemini()
     if not rate_limit_ok(TITLE_PREFIX):
         return 0
 
