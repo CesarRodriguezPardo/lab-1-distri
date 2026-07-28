@@ -196,11 +196,11 @@ void NBodySystem::computeAccelerationsGpu(int variant, int blockSize) {
     if (variant == 0) {
         // Variante simple: un kernel para todo
         launchComputeAccelerationsKernel(
-            buffer.d_mass,
-            buffer.d_x,
-            buffer.d_y,
-            buffer.d_ax,
-            buffer.d_ay,
+            buffer.getd_mass(),
+            buffer.getd_x(),
+            buffer.getd_y(),
+            buffer.getd_ax(),
+            buffer.getd_ay(),
             G_const,
             eps,
             nBodies,
@@ -209,11 +209,11 @@ void NBodySystem::computeAccelerationsGpu(int variant, int blockSize) {
     } else if (variant == 1) {
         // Variante con tiling: un kernel para todo, pero con memoria compartida
         launchComputeAccelerationsKernelShared(
-            buffer.d_mass,
-            buffer.d_x,
-            buffer.d_y,
-            buffer.d_ax,
-            buffer.d_ay,
+            buffer.getd_mass(),
+            buffer.getd_x(),
+            buffer.getd_y(),
+            buffer.getd_ax(),
+            buffer.getd_ay(),
             G_const,
             eps,
             nBodies,
