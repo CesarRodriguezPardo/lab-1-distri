@@ -14,14 +14,13 @@
             std::cerr << "Error CUDA en " << __FILE__ << ":" << __LINE__ \
                       << " - Código: " << err << " (" \
                       << cudaGetErrorString(err) << ")" << std::endl; \
-            std::exit(EXIT_FAILURE); \
         } \
     } while (0)
 
 #include "Particle.h"
 
 class CudaBuffer{
-    public:
+    private:
         double *d_mass; //masas
 
         double *d_x;    //posicion x
@@ -33,7 +32,84 @@ class CudaBuffer{
         double *d_vx;   //velocidad x
         double *d_vy;   //velocidad y
 
+    public:
+
+        // Getters
+        double* getd_mass() const {return this->d_mass;}
+
+        double* getd_x() const {return this->d_x;}
+
+        double* getd_y() const {return this->d_y;}
+
+        double* getd_vx() const {return this->d_vx;}
+
+        double* getd_vy() const {return this->d_vy;}
+
+        double* getd_ax() const {return this->d_ax;}
+
+        double* getd_ay() const {return this->d_ay;}
+
         // Constructores
+        
+        // Prohibir copia para evitar posible doble free
+        CudaBuffer(const CudaBuffer&) = delete;
+        CudaBuffer& operator=(const CudaBuffer&) = delete;
+
+        // Alternativa segura para "mover" los punteros
+        CudaBuffer(CudaBuffer&& other) noexcept{
+
+            d_mass = other.d_mass;
+            other.d_mass = nullptr;
+
+            d_x = other.d_x;
+            other.d_x = nullptr;
+            d_y = other.d_y;
+            other.d_y = nullptr;
+
+            d_vx = other.d_vx;
+            other.d_vx = nullptr;
+            d_vy = other.d_vy;
+            other.d_vy = nullptr;
+
+            d_ax = other.d_ax;
+            other.d_ax = nullptr;
+            d_ay = other.d_ay;
+            other.d_ay = nullptr;
+        }
+
+        CudaBuffer& operator=(CudaBuffer&& other) noexcept {
+            if (this != &other){
+                CUDA_CHECK(cudaFree(d_mass));
+                d_mass = other.d_mass;
+                other.d_mass = nullptr;
+
+                CUDA_CHECK(cudaFree(d_x));
+                d_x = other.d_x;
+                other.d_x = nullptr;
+
+                CUDA_CHECK(cudaFree(d_y));
+                d_y = other.d_y;
+                other.d_y = nullptr;
+
+                CUDA_CHECK(cudaFree(d_vx));
+                d_vx = other.d_vx;
+                other.d_vx = nullptr;
+
+                CUDA_CHECK(cudaFree(d_vy));
+                d_vy = other.d_vy;
+                other.d_vy = nullptr;
+
+                CUDA_CHECK(cudaFree(d_ax));
+                d_ax = other.d_ax;
+                other.d_ax = nullptr;
+
+                CUDA_CHECK(cudaFree(d_ay));
+                d_ay = other.d_ay;
+                other.d_ay = nullptr;
+            }
+            return *this;
+        }
+
         CudaBuffer(int n){ // Constructor que reserva memoria en el device para n particulas
             CUDA_CHECK(cudaMalloc((void**)&d_mass, n * sizeof(double)));
 
