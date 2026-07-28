@@ -1,5 +1,11 @@
 # include "NBodySimulator.h"
 
+
+extern void launchKineticAtomic(CudaBuffer* buf, double* d_K, int N, int blockSize);
+extern void launchPotentialAtomic(CudaBuffer* buf, double* d_U, int N, double G, double eps, int blockSize);
+extern void launchKineticShared(CudaBuffer* buf, double* d_K, int N, int blockSize);
+extern void launchPotentialShared(CudaBuffer* buf, double* d_U, int N, double G, double eps, int blockSize);
+
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt)
     : system(sys), time_step(dt), integrator(sys, dt) {}
       
@@ -19,6 +25,10 @@ void NBodySimulator::integrateEuler(int syncType) {
 
 void NBodySimulator::integrateEuler(int syncType, bool use_barrier) {
     integrator.integrateEuler(syncType, use_barrier);
+}
+
+void stepEulerGpu(CudaBuffer* buffer){
+    Integrator.integrateEulerGpu(buffer);
 }
 
 void NBodySimulator::calculateEnergy(std::ostream &energyFile){
@@ -54,6 +64,52 @@ void NBodySimulator::calculateEnergy(std::ostream &energyFile){
             << potentialEnergy << " \t " 
             << totalEnergy << "\n";
 }
+
+void NBodySimulator::calculateEnergyGpu(int method, CudaBuffer* buffer) {
+    int N = system->getCount();
+    double G = system->getG_const();
+    double eps = system->getEps();
+    
+    int blockSize = 256; // Puedes ajustarlo para el estudio de blockDim.x
+
+    // 1. Reservar memoria en la GPU para los resultados totales
+    double* d_total_K;
+    double* d_total_U;
+    CUDA_CHECK(cudaMalloc((void**)&d_total_K, sizeof(double)));
+    CUDA_CHECK(cudaMalloc((void**)&d_total_U, sizeof(double)));
+
+    // 2. Inicializar en cero (¡Crítico para que atomicAdd funcione bien!)
+    CUDA_CHECK(cudaMemset(d_total_K, 0, sizeof(double)));
+    CUDA_CHECK(cudaMemset(d_total_U, 0, sizeof(double)));
+
+    // 3. Lanzar los kernels según el método elegido
+    if (method == 1) {
+        // atomicAdd
+        launchKineticAtomic(buffer, d_total_K, N, blockSize);
+        launchPotentialAtomic(buffer, d_total_U, N, G, eps, blockSize);
+    } else {
+        // Reducción (Método 0)
+        launchKineticShared(buffer, d_total_K, N, blockSize);
+        launchPotentialShared(buffer, d_total_U, N, G, eps, blockSize);
+    }
+
+    // 4. Sincronizar para esperar los resultados
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    // 5. Traer los resultados de vuelta a la CPU
+    double h_total_K, h_total_U;
+    CUDA_CHECK(cudaMemcpy(&h_total_K, d_total_K, sizeof(double), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(&h_total_U, d_total_U, sizeof(double), cudaMemcpyDeviceToHost));
+
+    // 6. Liberar memoria
+    CUDA_CHECK(cudaFree(d_total_K));
+    CUDA_CHECK(cudaFree(d_total_U));
+
+    // 7. Mostrar resultados (o guardarlos en tu archivo de métricas)
+    double E_total = h_total_K + h_total_U;
+    std::cout << "K: " << h_total_K << " | U: " << h_total_U << " | E: " << E_total << std::endl;
+}
+
 
 omp_sched_t getScheduleFromSimInt(int type) {
     switch (type) {

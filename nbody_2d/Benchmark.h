@@ -4,6 +4,9 @@
 #include <vector>
 #include <string>
 #include <functional>
+#include "CudaBuffer.h"
+#include "NBodySystem.h"
+#include "kernels/accelerations.cuh" 
 
 // Resultado de un punto del scaling analysis
 struct BenchmarkResult {
@@ -35,12 +38,26 @@ struct PrivateSharedResult {
     double speedupVsSerial; // relativo al tiempo serial de referencia
 };
 
+struct GpuBenchmarkResult {
+    int    n_bodies;
+    int    variant;       // 0 = básica, 1 = shared memory
+    int    blockDim;
+    std::string measureType; // "kernel-only" o "end-to-end"
+    double avgTime;
+    double stdDevTime;
+    double speedup;       // CPU_serial_time / GPU_time
+};
+
+
 class Benchmark {
 private:
     int numRepetitions;
     std::vector<BenchmarkResult>      results;
     std::vector<ChunkResult>          chunkResults;
     std::vector<PrivateSharedResult>  privateSharedResults;
+
+    //Resultados Lab 2
+    std::vector<GpuBenchmarkResult>   gpuResults;
 
     // Método interno para ejecutar un experimento P veces
     void runExperiment(int numThreads, const std::function<void(bool)>& func,
@@ -83,6 +100,23 @@ public:
 
     // Exportar resultados de private vs shared
     void savePrivateSharedToFile(const std::string& filename);
+
+
+
+    Nuevos métodos GPU
+
+    // Pruebas CPU vs GPU con tolerancia en coma flotante
+    void compareCpuGpu(int n_bodies);
+
+    // Mide el tiempo del kernel de aceleración excluyendo transferencias 
+    // (sync incluida en la medición host)
+    void benchmarkKernelOnly(int n_bodies, int variant, int blockDim);
+
+    // Mide el tiempo del paso completo, incluyendo transferencias H2D y D2H
+    void benchmarkEndToEnd(int n_bodies, int variant, int blockDim);
+
+    // Para exportar 'benchmark_results.dat' y 'blockdim_study.dat'
+    void saveGpuResultsToFile(const std::string& filename);
 };
 
 #endif
