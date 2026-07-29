@@ -368,7 +368,7 @@ void Benchmark::compareCpuGpu(int n_bodies) {
     // Obtenemos las aceleraciones de vuelta a la CPU para comparación
     buffer.retrieveAccelerations(sys_gpu.getParticles());
 
-    // 4. Comparación con Tolerancia
+    // 4. Comparación con Tolerancia (posiblemente requeriría ajuste)
     double rtol = 1e-4;
     double atol = 1e-8;
     bool pass = true;
@@ -397,7 +397,7 @@ void Benchmark::compareCpuGpu(int n_bodies) {
             pass = false;
             break; // Detenemos en el primer error
         }
-    }
+    } // Nota: estaría bien poner por cuanto falló, para ajustar la tolerancia si es necesario.
 
     if (pass) {
         std::cout << "[EXITO] Todas las aceleraciones coinciden dentro de los limites de tolerancia.\n";
