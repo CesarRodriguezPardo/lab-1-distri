@@ -2,9 +2,24 @@
 #include <cmath>
 #include "metrics.cuh"
 
-// =========================================================================
-// VARIANTE 1: atomicAdd (Método 1)
-// =========================================================================
+// --- INICIO DEL PARCHE PARA ATOMICADD CON DOUBLE ---
+#if !defined(__CUDA_ARCH__) || __CUDA_ARCH__ >= 600
+// Si la arquitectura es 6.0 o mayor, atomicAdd para double ya existe nativamente.
+#else
+// Si es menor a 6.0, enseñamos a CUDA a hacerlo manualmente:
+__device__ double atomicAdd(double* address, double val) {
+    unsigned long long int* address_as_ull = (unsigned long long int*)address;
+    unsigned long long int old = *address_as_ull, assumed;
+    do {
+        assumed = old;
+        old = atomicCAS(address_as_ull, assumed,
+                        __double_as_longlong(val + __longlong_as_double(assumed)));
+    } while (assumed != old);
+    return __longlong_as_double(old);
+}
+#endif
+
+//atomicAdd
 
 __global__ void kineticEnergyAtomicKernel(double* d_mass, double* d_vx, double* d_vy, double* d_total_K, int N) {
     int i = blockIdx.x * blockDim.x + threadIdx.x;
@@ -29,9 +44,8 @@ __global__ void potentialEnergyAtomicKernel(double* d_mass, double* d_x, double*
     }
 }
 
-// =========================================================================
-// VARIANTE 0: Reducción en Memoria Compartida (Método 0)
-// =========================================================================
+//memoria compartida
+
 
 __global__ void kineticEnergySharedKernel(double* d_mass, double* d_vx, double* d_vy, double* d_total_K, int N) {
     // Memoria compartida dinámica para el bloque

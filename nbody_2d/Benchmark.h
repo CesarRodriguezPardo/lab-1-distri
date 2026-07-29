@@ -103,7 +103,7 @@ public:
 
 
 
-    Nuevos métodos GPU
+    //Nuevos métodos GPU
 
     // Pruebas CPU vs GPU con tolerancia en coma flotante
     void compareCpuGpu(int n_bodies);
