@@ -1,6 +1,7 @@
 #include "Integrator.h"
 #include <cmath>
 
+
 Integrator::Integrator(NBodySystem* sys, double dt)
     : system(sys), time_step(dt) {}
 
@@ -108,4 +109,23 @@ void Integrator::integrateEuler(int syncType, bool use_barrier) {
             #pragma omp barrier
         }
     }
+}
+
+
+
+void Integrator::integrateEulerGpu(CudaBuffer* buffer) {
+    auto& particles = system->getParticles();
+    int n = static_cast<int>(particles.size());
+
+    //Sincronizar y traer aceleraciones (D2H)
+    buffer->retrieveAccelerations(particles);
+
+    //Integrar en CPU (Kick y Drift)
+    for (int i = 0; i < n; ++i) {
+        particles[i].kick(time_step);
+        particles[i].drift(time_step);
+    }
+
+    //Enviar posiciones y velocidades actualizadas a la GPU (H2D)
+    buffer->updateDeviceKinematics(particles);
 }

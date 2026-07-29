@@ -3,6 +3,9 @@
 
 #include "NBodySystem.h"
 #include <omp.h>
+#include "CudaBuffer.h"
+#include <vector>
+
 
 /**
  * @class Integrator
@@ -34,6 +37,8 @@ public:
     //   use_barrier = true  → #pragma omp barrier explícito
     //   use_barrier = false → sin barrera (nowait puro)
     void integrateEuler(int syncType, bool use_barrier);
+
+    void integrateEulerGpu(CudaBuffer* buffer);
 };
 
 #endif

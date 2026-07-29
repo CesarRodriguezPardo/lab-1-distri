@@ -35,7 +35,8 @@ SRCS = Particle.cpp \
        Benchmark.cpp
 
 CU_SRCS = \
-	$(CUDA_DIR)/accelerations.cu
+    $(CUDA_DIR)/accelerations.cu \
+    $(CUDA_DIR)/metrics.cu
 
 # Fuentes de tests:
 #  - catch_amalgamated.cpp  → implementación de Catch2 v3 (incluye main())

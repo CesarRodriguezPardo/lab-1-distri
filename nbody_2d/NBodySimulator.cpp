@@ -1,5 +1,18 @@
 # include "NBodySimulator.h"
 
+
+extern void launchKineticAtomic(CudaBuffer* buf, double* d_K, int N, int blockSize);
+extern void launchPotentialAtomic(CudaBuffer* buf, double* d_U, int N, double G, double eps, int blockSize);
+extern void launchKineticShared(CudaBuffer* buf, double* d_K, int N, int blockSize);
+extern void launchPotentialShared(CudaBuffer* buf, double* d_U, int N, double G, double eps, int blockSize);
+
+extern void launchComputeAccelerationsKernel(
+    const double* d_mass, const double* d_x, const double* d_y, 
+    double* d_ax, double* d_ay, double G, double eps, int N, int blockSize
+);
+
+
+
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt)
     : system(sys), time_step(dt), integrator(sys, dt) {}
       
@@ -19,6 +32,10 @@ void NBodySimulator::integrateEuler(int syncType) {
 
 void NBodySimulator::integrateEuler(int syncType, bool use_barrier) {
     integrator.integrateEuler(syncType, use_barrier);
+}
+
+void NBodySimulator::stepEulerGpu(CudaBuffer* buffer){
+    integrator.integrateEulerGpu(buffer);
 }
 
 void NBodySimulator::calculateEnergy(std::ostream &energyFile){
@@ -54,6 +71,47 @@ void NBodySimulator::calculateEnergy(std::ostream &energyFile){
             << potentialEnergy << " \t " 
             << totalEnergy << "\n";
 }
+
+void NBodySimulator::calculateEnergyGpu(int method, CudaBuffer* buffer, std::ostream &energyFile) {
+    int N = system->getCount();
+    double G = system->getG_const();
+    double eps = system->getEps();
+    int blockSize = 256; 
+
+    double* d_total_K;
+    double* d_total_U;
+    CUDA_CHECK(cudaMalloc((void**)&d_total_K, sizeof(double)));
+    CUDA_CHECK(cudaMalloc((void**)&d_total_U, sizeof(double)));
+
+    CUDA_CHECK(cudaMemset(d_total_K, 0, sizeof(double)));
+    CUDA_CHECK(cudaMemset(d_total_U, 0, sizeof(double)));
+
+    if (method == 1) {
+        launchKineticAtomic(buffer, d_total_K, N, blockSize);
+        launchPotentialAtomic(buffer, d_total_U, N, G, eps, blockSize);
+    } else {
+        launchKineticShared(buffer, d_total_K, N, blockSize);
+        launchPotentialShared(buffer, d_total_U, N, G, eps, blockSize);
+    }
+
+    CUDA_CHECK(cudaDeviceSynchronize());
+
+    double h_total_K, h_total_U;
+    CUDA_CHECK(cudaMemcpy(&h_total_K, d_total_K, sizeof(double), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(&h_total_U, d_total_U, sizeof(double), cudaMemcpyDeviceToHost));
+
+    CUDA_CHECK(cudaFree(d_total_K));
+    CUDA_CHECK(cudaFree(d_total_U));
+
+    double E_total = h_total_K + h_total_U;
+    
+    // Guardamos en el archivo .dat para cumplir con la documentación de deriva
+    energyFile << std::fixed << std::setprecision(8) 
+               << h_total_K << " \t " 
+               << h_total_U << " \t " 
+               << E_total << "\n";
+}
+
 
 omp_sched_t getScheduleFromSimInt(int type) {
     switch (type) {
@@ -243,33 +301,61 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
     auto start = std::chrono::high_resolution_clock::now();
 
 
-    // Simulacion basada en parametros de entrada, se pueden elegir entre 3 tipos de simulacion: 
-    // 0 = serial, 1 = paralelo con for, 2 = paralelo con tareas
-    if(sim_type == 0){
+    // Simulacion basada en parametros de entrada, se pueden elegir entre 4 tipos de simulacion: 
+    // 0 = serial, 1 = paralelo con for, 2 = paralelo con tareas, 3 = CUDA
+    if(sim_type == 0) {
         for(int step = 0; step < steps; ++step){
             this->processBodies(energyFile);
-            system->saveSnapshot(trajectoryFile, step); // Guardar el estado actual en el archivo
-            if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
+            system->saveSnapshot(trajectoryFile, step); 
+            if (step % 10 == 0) { 
                 std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
             }
             std::cout.flush();
         }
-    }else {
+    } // <--- ¡ESTA ES LA LLAVE QUE FALTABA!
+    
+    else if(sim_type == 3) {
+        int N = system->getCount();
+        double G = system->getG_const();
+        double eps = system->getEps();
+        int blockSize = chunkSize; 
+        
+        CudaBuffer buffer(N, system->getParticles());
+        
+        for (int step = 0; step < steps; ++step){
+            launchComputeAccelerationsKernel(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(),
+                buffer.getd_ax(), buffer.getd_ay(),
+                G, eps, N, blockSize
+            );
+            
+            this->stepEulerGpu(&buffer);
+            this->calculateEnergyGpu(method, &buffer, energyFile);
+            
+            system->saveSnapshot(trajectoryFile, step); 
+            
+            if (step % 10 == 0) { 
+                std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+            }
+            std::cout.flush();
+        }
+    } // <--- Y esta llave cierra el bloque de CUDA
+    
+    else { // <--- El else final va directo aquí, sin llaves extra perdidas arriba
         if(taskType == -1){
             for (int step = 0; step < steps; ++step){
                 this->processBodies(energyFile, method, syncType, scheduleType, chunkSize, use_barrier);
-                system->saveSnapshot(trajectoryFile, step); // Guardar el estado actual en el archivo
-                if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
+                system->saveSnapshot(trajectoryFile, step); 
+                if (step % 10 == 0) { 
                     std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
                 }
                 std::cout.flush();
             }
-
-        } else{
+        } else {
             for (int step = 0; step < steps; ++step){
                 this->processBodies(energyFile, taskType, syncType);
-                system->saveSnapshot(trajectoryFile, step); // Guardar el estado actual en el archivo
-                if (step % 10 == 0) { // Imprimir cada 10 pasos para no saturar la salida
+                system->saveSnapshot(trajectoryFile, step); 
+                if (step % 10 == 0) { 
                     std::cout << "ciclo " << step + 1  << " listo" << std::endl; 
                 }
                 std::cout.flush();
@@ -284,8 +370,8 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
 
     std::chrono::duration<double> duration = end - start;
 
-    std::cout << "Simulation done in " 
+    std::cout << "Simulacion hecha en " 
               << std::fixed << std::setprecision(8)
-              << duration.count() << " seconds." << std::endl;
+              << duration.count() << " segundos." << std::endl;
     return;
 }
