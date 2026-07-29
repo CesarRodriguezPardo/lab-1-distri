@@ -11,6 +11,11 @@ extern void launchComputeAccelerationsKernel(
     double* d_ax, double* d_ay, double G, double eps, int N, int blockSize
 );
 
+extern void launchComputeAccelerationsKernelShared(
+    const double* d_mass, const double* d_x, const double* d_y, 
+    double* d_ax, double* d_ay, double G, double eps, int N, int blockSize
+);
+
 
 
 NBodySimulator::NBodySimulator(NBodySystem* sys, double dt)
@@ -341,7 +346,7 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
                 std::cout.flush();
             }
         } 
-        if else(method == 1) { //atomic add
+        else if(method == 1) { //atomic add
             for (int step = 0; step < steps; ++step){
                 launchComputeAccelerationsKernel(
                 buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(),
