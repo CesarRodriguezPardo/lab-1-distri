@@ -55,10 +55,16 @@ void computeAccelerationsKernelShared(
 
     int i = blockIdx.x * blockDim.x + threadIdx.x;
 
-    if (i >= N) return;    // Protección de bordes
+    // Protección de bordes
+    const bool isValid = (i < N);
 
-    double xi = d_x[i];
-    double yi = d_y[i];
+    double xi = 0.0;
+    double yi = 0.0;
+
+    if (isValid) {
+        xi = d_x[i];
+        yi = d_y[i];
+    }
 
     double totalAX = 0.0;
     double totalAY = 0.0;
@@ -81,30 +87,32 @@ void computeAccelerationsKernelShared(
         __syncthreads();
 
         // Calcular tamaño del tile (puede ser menor que blockDim.x en el último tile)
-        int tileSize = min(blockDim.x, N - tile);
+        const int tileSize = min((int)blockDim.x, N - tile);
+        if (isValid) {
+            for (int j = 0; j < tileSize; ++j) {
+                int globalJ = tile + j;
 
-        for (int j = 0; j < tileSize; j++) {
-            int globalJ = tile + j;
+                if (globalJ == i) continue;
 
-            if (globalJ == i) continue;
+                double dx = sharedX[j] - xi;
+                double dy = sharedY[j] - yi;
 
-            double dx = sharedX[j] - xi;
-            double dy = sharedY[j] - yi;
+                double rSquared = dx * dx + dy * dy + eps * eps;
+                double r = sqrt(rSquared);
+                double scalarForce = G * sharedMass[j] / (rSquared * r);
 
-            double rSquared = dx * dx + dy * dy + eps * eps;
-            double r = sqrt(rSquared);
-            double scalarForce = G * sharedMass[j] / (rSquared * r);
-
-            totalAX += scalarForce * dx;
-            totalAY += scalarForce * dy;
-        }
-
+                totalAX += scalarForce * dx;
+                totalAY += scalarForce * dy;
+            }
+        }   
         // Esperar antes de sobrescribir shared memory
         __syncthreads();
     }
 
-    d_ax[i] = totalAX;
-    d_ay[i] = totalAY;
+    if (isValid) {
+        d_ax[i] = totalAX;
+        d_ay[i] = totalAY;
+    }
 }
 
 void launchComputeAccelerationsKernel(
@@ -124,7 +132,6 @@ void launchComputeAccelerationsKernel(
     );
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
-    CUDA_CHECK(cudaGetLastError());
 }
 
 void launchComputeAccelerationsKernelShared(
@@ -145,5 +152,4 @@ void launchComputeAccelerationsKernelShared(
     );
     CUDA_CHECK(cudaGetLastError());
     CUDA_CHECK(cudaDeviceSynchronize());
-    CUDA_CHECK(cudaGetLastError());
 }
