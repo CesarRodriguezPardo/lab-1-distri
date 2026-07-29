@@ -4,6 +4,7 @@
 #include "NBodySystem.h"
 #include <omp.h>
 #include "CudaBuffer.h"
+#include <vector>
 
 
 /**

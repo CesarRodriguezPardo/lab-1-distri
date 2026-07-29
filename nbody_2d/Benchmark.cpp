@@ -330,6 +330,13 @@ void Benchmark::savePrivateSharedToFile(const std::string& filename) {
 
 
 
+
+
+//____________________________________________________________________________________
+// Benchmarks lab 2: GPU
+//____________________________________________________________________________________
+
+
 // Pruebas CPU vs GPU con tolerancia en coma flotante
 void Benchmark::compareCpuGpu(int n_bodies) {
     std::cout << "Iniciando validacion CPU vs GPU para N = " << n_bodies << "...\n";
@@ -351,14 +358,14 @@ void Benchmark::compareCpuGpu(int n_bodies) {
     CudaBuffer buffer(n_bodies, sys_gpu.getParticles());
     int blockSize = 256;
     
-    // Usamos el lanzador del Rol 1 (Variante básica)
+    // Usamos el lanzador del kernel para la GPU
     launchComputeAccelerationsKernel(
-        buffer.d_mass, buffer.d_x, buffer.d_y, 
-        buffer.d_ax, buffer.d_ay, 
+        buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+        buffer.getd_ax(), buffer.getd_ay(), 
         G, eps, n_bodies, blockSize
     );
     
-    // Rescatamos los datos usando la función del Rol 2
+    // Obtenemos las aceleraciones de vuelta a la CPU para comparación
     buffer.retrieveAccelerations(sys_gpu.getParticles());
 
     // 4. Comparación con Tolerancia
@@ -421,12 +428,18 @@ void Benchmark::benchmarkKernelOnly(int n_bodies, int variant, int blockDim) {
         auto start = std::chrono::steady_clock::now();
 
         if (variant == 0) {
-            launchComputeAccelerationsKernel(buffer.d_mass, buffer.d_x, buffer.d_y, buffer.d_ax, buffer.d_ay, 1.0, 0.01, n_bodies, blockDim);
+            launchComputeAccelerationsKernel(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
         } else {
-            launchComputeAccelerationsKernelShared(buffer.d_mass, buffer.d_x, buffer.d_y, buffer.d_ax, buffer.d_ay, 1.0, 0.01, n_bodies, blockDim);
+            launchComputeAccelerationsKernelShared(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
         }
-        // Nota: Tus funciones launchComputeAccelerationsKernel ya contienen 
-        // cudaDeviceSynchronize() internamente, por lo que la CPU se detendrá aquí.
 
         // Fin de temporización
         auto end = std::chrono::steady_clock::now();
@@ -479,9 +492,17 @@ void Benchmark::benchmarkEndToEnd(int n_bodies, int variant, int blockDim) {
 
         // 2. Cómputo del Kernel + Sincronización
         if (variant == 0) {
-            launchComputeAccelerationsKernel(buffer.d_mass, buffer.d_x, buffer.d_y, buffer.d_ax, buffer.d_ay, 1.0, 0.01, n_bodies, blockDim);
+            launchComputeAccelerationsKernel(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
         } else {
-            launchComputeAccelerationsKernelShared(buffer.d_mass, buffer.d_x, buffer.d_y, buffer.d_ax, buffer.d_ay, 1.0, 0.01, n_bodies, blockDim);
+            launchComputeAccelerationsKernelShared(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
         }
 
         // 3. Transferencia Device to Host (D2H) encapsulada en la recuperación

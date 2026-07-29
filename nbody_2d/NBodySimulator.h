@@ -3,7 +3,7 @@
 
 #include "NBodySystem.h"
 #include "Integrator.h"
-#include "CudaBuffer.h" // <-- NUEVO: Incluimos la clase del Rol 2
+#include "CudaBuffer.h"
 #include <fstream>
 #include <iomanip>
 #include <cmath>

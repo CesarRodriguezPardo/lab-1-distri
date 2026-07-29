@@ -95,22 +95,30 @@ __global__ void potentialEnergySharedKernel(double* d_mass, double* d_x, double*
 
 void launchKineticAtomic(CudaBuffer* buf, double* d_K, int N, int blockSize) {
     int numBlocks = (N + blockSize - 1) / blockSize;
-    kineticEnergyAtomicKernel<<<numBlocks, blockSize>>>(buf->d_mass, buf->d_vx, buf->d_vy, d_K, N);
+    kineticEnergyAtomicKernel<<<numBlocks, blockSize>>>(
+        buf->getd_mass(), buf->getd_vx(), buf->getd_vy(), d_K, N
+    );
 }
 
 void launchPotentialAtomic(CudaBuffer* buf, double* d_U, int N, double G, double eps, int blockSize) {
     int numBlocks = (N + blockSize - 1) / blockSize;
-    potentialEnergyAtomicKernel<<<numBlocks, blockSize>>>(buf->d_mass, buf->d_x, buf->d_y, d_U, N, G, eps);
+    potentialEnergyAtomicKernel<<<numBlocks, blockSize>>>(
+        buf->getd_mass(), buf->getd_x(), buf->getd_y(), d_U, N, G, eps
+    );
 }
 
 void launchKineticShared(CudaBuffer* buf, double* d_K, int N, int blockSize) {
     int numBlocks = (N + blockSize - 1) / blockSize;
     size_t sharedBytes = blockSize * sizeof(double);
-    kineticEnergySharedKernel<<<numBlocks, blockSize, sharedBytes>>>(buf->d_mass, buf->d_vx, buf->d_vy, d_K, N);
+    kineticEnergySharedKernel<<<numBlocks, blockSize, sharedBytes>>>(
+        buf->getd_mass(), buf->getd_vx(), buf->getd_vy(), d_K, N
+    );
 }
 
 void launchPotentialShared(CudaBuffer* buf, double* d_U, int N, double G, double eps, int blockSize) {
     int numBlocks = (N + blockSize - 1) / blockSize;
     size_t sharedBytes = blockSize * sizeof(double); // Memoria dinámica
-    potentialEnergySharedKernel<<<numBlocks, blockSize, sharedBytes>>>(buf->d_mass, buf->d_x, buf->d_y, d_U, N, G, eps);
+    potentialEnergySharedKernel<<<numBlocks, blockSize, sharedBytes>>>(
+        buf->getd_mass(), buf->getd_x(), buf->getd_y(), d_U, N, G, eps
+    );
 }

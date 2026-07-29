@@ -112,53 +112,20 @@ void Integrator::integrateEuler(int syncType, bool use_barrier) {
 }
 
 
-void Integrator::integrateEulerGpu(CudaBuffer* buffer) {
-    // ---------------------------------------------------------
-    // PASO 1: Sincronización explícita
-    // Esperamos a que el kernel de aceleraciones (Rol 1) termine.
-    // ---------------------------------------------------------
-    cudaDeviceSynchronize();
 
-    // Obtenemos las partículas y la cantidad N
+void Integrator::integrateEulerGpu(CudaBuffer* buffer) {
     auto& particles = system->getParticles();
     int n = static_cast<int>(particles.size());
-    size_t bytes = n * sizeof(double);
 
-    // ---------------------------------------------------------
-    // PASO 2: Device a Host (SoA -> Cajas temporales)
-    // ---------------------------------------------------------
-    std::vector<double> h_ax(n);
-    std::vector<double> h_ay(n);
+    //Sincronizar y traer aceleraciones (D2H)
+    buffer->retrieveAccelerations(particles);
 
-    // cudaMemcpy(destino, origen, tamaño_bytes, dirección)
-    cudaMemcpy(h_ax.data(), buffer->d_ax, bytes, cudaMemcpyDeviceToHost);
-    cudaMemcpy(h_ay.data(), buffer->d_ay, bytes, cudaMemcpyDeviceToHost);
-
-    // ---------------------------------------------------------
-    // PASO 3: Ensamblar e Integrar (Tu Euler en la CPU)
-    // Inyectamos datos SoA al objeto AoS y aplicamos física
-    // ---------------------------------------------------------
+    //Integrar en CPU (Kick y Drift)
     for (int i = 0; i < n; ++i) {
-        // Pasamos la aceleración calculada en GPU al objeto Particle
-        particles[i].setAcceleration(h_ax[i], h_ay[i]);
-        
-        // Ejecutamos kick y drift en el Host
         particles[i].kick(time_step);
         particles[i].drift(time_step);
     }
 
-    // ---------------------------------------------------------
-    // PASO 4: Desempaquetar (AoS -> Cajas temporales)
-    // ---------------------------------------------------------
-    std::vector<double> h_x(n);
-    std::vector<double> h_y(n);
-
-    for (int i = 0; i < n; ++i) {
-        h_x[i] = particles[i].getX();
-        h_y[i] = particles[i].getY();
-    }
-
-    // Host a Device (Enviar posiciones actualizadas a la GPU)
-    cudaMemcpy(buffer->d_x, h_x.data(), bytes, cudaMemcpyHostToDevice);
-    cudaMemcpy(buffer->d_y, h_y.data(), bytes, cudaMemcpyHostToDevice);
+    //Enviar posiciones y velocidades actualizadas a la GPU (H2D)
+    buffer->updateDeviceKinematics(particles);
 }

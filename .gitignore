@@ -12,6 +12,9 @@ nbody_2d/*.png
 # Archivos de macOS
 .DS_Store
 
+# archivo de respaldo de Vim
+*.swp
+
 # Bytecode de Python (agentes)
 __pycache__/
 *.pyc
