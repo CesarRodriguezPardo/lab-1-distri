@@ -312,7 +312,7 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
             }
             std::cout.flush();
         }
-    } // <--- ¡ESTA ES LA LLAVE QUE FALTABA!
+    }
     
     else if(sim_type == 3) {
         int N = system->getCount();
@@ -321,27 +321,52 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
         int blockSize = chunkSize; 
         
         CudaBuffer buffer(N, system->getParticles());
-        
-        for (int step = 0; step < steps; ++step){
-            launchComputeAccelerationsKernel(
+
+        if (method == 0) { //memoria compartida con shared
+            for (int step = 0; step < steps; ++step){
+                launchComputeAccelerationsKernelShared(
                 buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(),
                 buffer.getd_ax(), buffer.getd_ay(),
                 G, eps, N, blockSize
-            );
-            
-            this->stepEulerGpu(&buffer);
-            this->calculateEnergyGpu(method, &buffer, energyFile);
-            
-            system->saveSnapshot(trajectoryFile, step); 
-            
-            if (step % 10 == 0) { 
-                std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+                );
+                
+                this->stepEulerGpu(&buffer);
+                this->calculateEnergyGpu(method, &buffer, energyFile);
+                
+                system->saveSnapshot(trajectoryFile, step); 
+                
+                if (step % 10 == 0) { 
+                    std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+                }
+                std::cout.flush();
             }
-            std::cout.flush();
+        } 
+        if else(method == 1) { //atomic add
+            for (int step = 0; step < steps; ++step){
+                launchComputeAccelerationsKernel(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(),
+                buffer.getd_ax(), buffer.getd_ay(),
+                G, eps, N, blockSize
+                );
+                
+                this->stepEulerGpu(&buffer);
+                this->calculateEnergyGpu(method, &buffer, energyFile);
+                
+                system->saveSnapshot(trajectoryFile, step); 
+                
+                if (step % 10 == 0) { 
+                    std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+                }
+                std::cout.flush();
+            }
         }
-    } // <--- Y esta llave cierra el bloque de CUDA
-    
-    else { // <--- El else final va directo aquí, sin llaves extra perdidas arriba
+        else {
+            std::cerr << "Metodo de paralelizacion no valido. Use 0 para Reduccion compartida o 1 para AtomicAdd." << std::endl;
+            return;
+        }
+    }
+
+    else {
         if(taskType == -1){
             for (int step = 0; step < steps; ++step){
                 this->processBodies(energyFile, method, syncType, scheduleType, chunkSize, use_barrier);
