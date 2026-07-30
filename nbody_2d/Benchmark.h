@@ -46,6 +46,8 @@ struct GpuBenchmarkResult {
     double avgTime;
     double stdDevTime;
     double speedup;       // CPU_serial_time / GPU_time
+    double cpuStdDev;     // desviación estándar del tiempo CPU serial
+    double speedupError;  // error del speedup propagado según fórmula (4)
 };
 
 

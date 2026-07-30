@@ -51,7 +51,7 @@ TEST_SRCS = tests/catch_amalgamated.cpp \
 # ─────────────────────────────────────────────────────────────
 #  Targets
 # ─────────────────────────────────────────────────────────────
-.PHONY: all test analysis plot clean benchmark
+.PHONY: all test analysis plot clean benchmark benchmark-bin
 
 # Target por defecto: compila el binario principal
 all: nbody
@@ -59,8 +59,15 @@ all: nbody
 nbody: main.cpp $(SRCS) $(CU_SRCS)
 	$(NVCC) $(NVCCFLAGS) $^ -o $@ $(LDFLAGS)
 
-benchmark: benchmark_main.cpp $(SRCS) $(CU_SRCS)
+# make benchmark-bin:
+#   Solo compila el binario de benchmarks (útil para CI sin GPU)
+benchmark-bin: benchmark_main.cpp $(SRCS) $(CU_SRCS)
 	$(NVCC) $(NVCCFLAGS) $^ -o benchmark $(LDFLAGS)
+
+# make benchmark:
+#   1. Compila el binario de benchmarks (dependencia: benchmark-bin)
+#   2. Ejecuta ./benchmark → genera scaling_parallel.dat y chunk_schedule.dat
+benchmark: benchmark-bin
 	./benchmark
 
 # make test:
