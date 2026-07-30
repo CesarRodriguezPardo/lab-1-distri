@@ -34,6 +34,9 @@ void Benchmark::runExperiment(int numThreads, const std::function<void(bool)>& f
                 double start_time = 0.0;
                 #pragma omp master
                 start_time = omp_get_wtime();
+                // Barrera: garantiza que el timestamp de master precede
+                // al trabajo de todas las hebras (evita carrera en la medición)
+                #pragma omp barrier
 
                 for (int i = 0; i < repsPerBatch; ++i) func(true);
 
@@ -466,7 +469,17 @@ void Benchmark::benchmarkKernelOnly(int n_bodies, int variant, int blockDim) {
     res.avgTime = avgTime;
     res.stdDevTime = stdDevTime;
     res.speedup = cpuAvgTime / avgTime;
-    
+    res.cpuStdDev = cpuStdDev;
+    // Propagación de error del speedup según fórmula (4):
+    // σ_S = S · sqrt( (σ_Tcpu/T_cpu)² + (σ_Tgpu/T_gpu)² )
+    if (cpuAvgTime > 0.0 && avgTime > 0.0) {
+        double relCpu = cpuStdDev / cpuAvgTime;
+        double relGpu = stdDevTime / avgTime;
+        res.speedupError = res.speedup * std::sqrt(relCpu * relCpu + relGpu * relGpu);
+    } else {
+        res.speedupError = 0.0;
+    }
+
     gpuResults.push_back(res);
 }
 
@@ -533,7 +546,17 @@ void Benchmark::benchmarkEndToEnd(int n_bodies, int variant, int blockDim) {
     res.avgTime = avgTime;
     res.stdDevTime = stdDevTime;
     res.speedup = cpuAvgTime / avgTime;
-    
+    res.cpuStdDev = cpuStdDev;
+    // Propagación de error del speedup según fórmula (4):
+    // σ_S = S · sqrt( (σ_Tcpu/T_cpu)² + (σ_Tgpu/T_gpu)² )
+    if (cpuAvgTime > 0.0 && avgTime > 0.0) {
+        double relCpu = cpuStdDev / cpuAvgTime;
+        double relGpu = stdDevTime / avgTime;
+        res.speedupError = res.speedup * std::sqrt(relCpu * relCpu + relGpu * relGpu);
+    } else {
+        res.speedupError = 0.0;
+    }
+
     gpuResults.push_back(res);
 }
 
@@ -553,7 +576,9 @@ void Benchmark::saveGpuResultsToFile(const std::string& filename) {
             << std::setw(15) << "MeasureType" 
             << std::setw(15) << "AvgTime(s)" 
             << std::setw(15) << "StdDev(s)" 
-            << std::setw(15) << "Speedup" << "\n";
+            << std::setw(15) << "Speedup"
+            << std::setw(15) << "CpuStdDev(s)"
+            << std::setw(15) << "SpeedupError" << "\n";
 
     for (const auto& res : gpuResults) {
         outFile << std::setw(10) << res.n_bodies
@@ -562,7 +587,9 @@ void Benchmark::saveGpuResultsToFile(const std::string& filename) {
                 << std::setw(15) << res.measureType
                 << std::setw(15) << res.avgTime
                 << std::setw(15) << res.stdDevTime
-                << std::setw(15) << res.speedup << "\n";
+                << std::setw(15) << res.speedup
+                << std::setw(15) << res.cpuStdDev
+                << std::setw(15) << res.speedupError << "\n";
     }
 
     outFile.close();

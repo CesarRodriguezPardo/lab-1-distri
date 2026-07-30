@@ -2,7 +2,7 @@ name: CI — N-Body 2D
 
 on:
   push:
-    branches: [main, "feat/ci2.0andtestsandmaybeplots"]
+    branches: [main]
   pull_request:
     branches: [main]
 
@@ -37,14 +37,24 @@ jobs:
             nbody-2d-ci \
             bash -lc "make all"
 
+      - name: Compilar binario de benchmarks (make benchmark-bin)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/nbody_2d:/workspace" \
+            -w /workspace \
+            nbody-2d-ci \
+            bash -lc "make benchmark-bin"
+
       - name: Nota de alcance
         run: |
-          echo "Este CI valida compilación y tests CPU. Benchmarks finales y mediciones GPU se ejecutan fuera de CI."
+          echo "Este CI valida compilación y tests CPU, y compila (sin ejecutar) el binario de benchmarks para detectar roturas en la ruta GPU/benchmark. Benchmarks finales y mediciones GPU se ejecutan fuera de CI."
 
       - name: Guardar artefacto de test
         uses: actions/upload-artifact@v4
         if: always()
         with:
           name: test-binaries
-          path: nbody_2d/test_runner
+          path: |
+            nbody_2d/test_runner
+            nbody_2d/benchmark
           retention-days: 7

@@ -23,3 +23,10 @@ lab_1.pdf
 
 *.exe
 *.png
+.opencode/*
+repomix-output.xml
+AGENTS.md
+PROJECT_MAP.md
+ARCHITECTURE.md
+skills-lock.json
+.agents/*
