@@ -1,4 +1,4 @@
-# Laboratorio 1: Simulación N-Body 2D con OpenMP
+# Laboratorio 2: Simulación N-Body 2D con CUDA
 
 Este repositorio contiene una simulación computacional del problema de los N-Cuerpos en 2D, paralelizada utilizando OpenMP y validada rigurosamente mediante el framework de pruebas Catch2.
 
@@ -12,7 +12,7 @@ Este repositorio contiene una simulación computacional del problema de los N-Cu
 | **Martín Salinas**    |  2  | Diseño e implementación de paralelización, utilizando distintas cláusulas de OpenMP solicitadas.                                                        |
 | **Nicolás García**    |  3  | Desarrollo serial del sistema y encargado de implementar las físicas y el integrador Euler.                                                             |
 | **Sebastián Cassone** |  4  | Desarrollo del módulo de métricas (`MetricsCalculator`), y benchmark para implementación de mediciones.                                                 |
-| **César Rodríguez**   |  5  | Pruebas unitarias, automatización del entorno de compilación (Makefile), containerización (Dockerfile), scripting analítico (Gnuplot) y documentación.  |
+| **César Rodríguez**   |  4  | Git, releases y agentes: protección de `main`, `CHANGELOG.md`, issues etiquetados, tres agentes de IA en CI, release `v2.0.0-lab2`. |
 
 ### Hitos del Proyecto
 
@@ -20,6 +20,31 @@ Este repositorio contiene una simulación computacional del problema de los N-Cu
 - **Hito 2 (Semana 2):** Paralelización del algoritmo $O(N^2)$ usando OpenMP, enfrentando mitigaciones de concurrencia y particionamiento espacial.
 - **Hito 3 (Semana 3):** Desarrollo profundo del Testing Framework (Catch2), solución de condiciones de carrera (Race Conditions) e Integración Continua.
 - **Hito 4 (Semana 4):** Benchmarking final del desempeño de hilos, creación de reportes gráficos y consolidación de la documentación.
+
+### Flujo de trabajo Git
+
+- `main` protegida: sin push directo, merge solo vía Pull Request.
+- 1 revisión humana + CI verde requeridos para fusionar.
+- Ramas: `feature/<nombre>` y `fix/<nombre>`, eliminadas automáticamente al fusionar.
+- Commits convencionales: `feat(scope):`, `fix(scope):`, `docs(scope):`.
+- Todo PR cierra un issue: `Closes #N`.
+- Documentación completa en [`.github/GIT_FLOW.md`](.github/GIT_FLOW.md).
+
+## Agentes de IA
+
+Tres agentes automatizan documentación, revisión de bugs y revisión de PRs.
+Scripts en [`.github/agents/`](.github/agents/), disparadores en
+[`.github/workflows/`](.github/workflows/).
+
+| Agente | Herramienta | Frecuencia | Criterio mecánico | Criterio humano |
+|---|---|---|---|---|
+| Documentador | Python + Gemini 2.5 Flash | Semanal (lunes) + push a `main` | Typo, enlace vacío, sección faltante → abre PR con fix (`agent:auto-fix`) | Decisiones de diseño, explicar kernels → issue "Requiere intervención humana" |
+| Revisor de bugs | Python + Gemini 2.5 Flash | Diario (cron 03:00 UTC) | Falta `CUDA_CHECK`, kernel sin `cudaGetLastError` → issue con parche | Afecta física o API pública → issue |
+| Revisor de MRs | Python + Gemini 2.5 Flash | Al terminar CI en un PR (`workflow_run`) | Solo docs/tests, CI verde, issue vinculado → "Mecánico y mergeable" | Cambios en kernels o física → "Requiere revisión humana"; si CI falla lo dice |
+
+- Motor: **Gemini 2.5 Flash** con API key en GitHub Secrets.
+- Máximo 5 issues automáticos por agente por semana.
+- **Nunca** fusionan a `main` sin aprobación humana.
 
 ---
 
@@ -45,7 +70,7 @@ El código hace uso de una amplia gama de pragmas obligatorios:
 - **`#pragma omp for nowait`**: Empleado en `Integrator.cpp` (variante 2) para eludir la barrera sintética implícita tras el final de un bucle For restrictivo.
 - **`reduction`, `firstprivate`, `lastprivate`**: Aplicados y demostrados en `MetricsCalculator.cpp` al efectuar sumatorias compartidas (como la reducción agregada de la Energía Total a partir de pasos intermedios de los hilos de trabajador).
 
-**URL del Repositorio:** []
+**URL del Repositorio:** https://github.com/CesarRodriguezPardo/lab-1-distri
 
 ---
 
