@@ -4,6 +4,7 @@
 #include <iostream>
 #include <fstream>
 #include <iomanip>
+#include <chrono>
 
 Benchmark::Benchmark(int repetitions) : numRepetitions(repetitions) {}
 
@@ -325,4 +326,245 @@ void Benchmark::savePrivateSharedToFile(const std::string& filename) {
     }
     out.close();
     std::cout << "Private/shared results guardados en: " << filename << "\n";
+}
+
+
+
+
+
+//____________________________________________________________________________________
+// Benchmarks lab 2: GPU
+//____________________________________________________________________________________
+
+
+// Pruebas CPU vs GPU con tolerancia en coma flotante
+void Benchmark::compareCpuGpu(int n_bodies) {
+    std::cout << "Iniciando validacion CPU vs GPU para N = " << n_bodies << "...\n";
+
+    // 1. Configurar sistema base
+    double G = 1.0;
+    double eps = 0.01;
+    NBodySystem sys_cpu(G, eps);
+    sys_cpu.randomSystem(n_bodies, 42); // Semilla fija documentada
+    
+    // Clonamos para la GPU
+    NBodySystem sys_gpu = sys_cpu; 
+
+    // 2. Calcular en CPU (Baseline Serial)
+    sys_cpu.zeroAccelerations();
+    sys_cpu.computeAccelerations(); // El del Lab 1
+
+    // 3. Calcular en GPU
+    CudaBuffer buffer(n_bodies, sys_gpu.getParticles());
+    int blockSize = 256;
+    
+    // Usamos el lanzador del kernel para la GPU
+    launchComputeAccelerationsKernel(
+        buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+        buffer.getd_ax(), buffer.getd_ay(), 
+        G, eps, n_bodies, blockSize
+    );
+    
+    // Obtenemos las aceleraciones de vuelta a la CPU para comparación
+    buffer.retrieveAccelerations(sys_gpu.getParticles());
+
+    // 4. Comparación con Tolerancia (posiblemente requeriría ajuste)
+    double rtol = 1e-4;
+    double atol = 1e-8;
+    bool pass = true;
+
+    const auto& particles_cpu = sys_cpu.getParticles();
+    const auto& particles_gpu = sys_gpu.getParticles();
+
+    for (int i = 0; i < n_bodies; ++i) {
+        double ax_c = particles_cpu[i].getAX();
+        double ax_g = particles_gpu[i].getAX();
+        
+        double ay_c = particles_cpu[i].getAY();
+        double ay_g = particles_gpu[i].getAY();
+
+        // Fórmula matemática exigida: |CPU - GPU| <= atol + rtol * |CPU|
+        double diff_x = std::abs(ax_c - ax_g);
+        double tol_x = atol + rtol * std::abs(ax_c);
+
+        double diff_y = std::abs(ay_c - ay_g);
+        double tol_y = atol + rtol * std::abs(ay_c);
+
+        if (diff_x > tol_x || diff_y > tol_y) {
+            std::cerr << "[FALLO] Particula " << i << " excede tolerancia.\n"
+                      << "  X -> CPU: " << ax_c << " | GPU: " << ax_g << " | Diff: " << diff_x << "\n"
+                      << "  Y -> CPU: " << ay_c << " | GPU: " << ay_g << " | Diff: " << diff_y << "\n";
+            pass = false;
+            break; // Detenemos en el primer error
+        }
+    } // Nota: estaría bien poner por cuanto falló, para ajustar la tolerancia si es necesario.
+
+    if (pass) {
+        std::cout << "[EXITO] Todas las aceleraciones coinciden dentro de los limites de tolerancia.\n";
+    } else {
+        std::cout << "[ERROR] La validacion fallo.\n";
+    }
+}
+
+
+// Mide el tiempo del kernel de aceleración excluyendo transferencias
+void Benchmark::benchmarkKernelOnly(int n_bodies, int variant, int blockDim) {
+    NBodySystem sys(1.0, 0.01);
+    sys.randomSystem(n_bodies, 42);
+    
+    // El buffer se crea AFUERA del temporizador (excluye H2D)
+    CudaBuffer buffer(n_bodies, sys.getParticles());
+
+    // Obtenemos el tiempo serial de la CPU para calcular el speedup
+    double cpuAvgTime = 0.0, cpuStdDev = 0.0;
+    auto cpuFunc = [&]() { sys.computeAccelerations(); };
+    runExperimentSimple(cpuFunc, cpuAvgTime, cpuStdDev);
+
+    std::vector<double> times(numRepetitions);
+    double totalTime = 0.0;
+
+    for (int i = 0; i < numRepetitions; ++i) {
+        // Inicio de temporización
+        auto start = std::chrono::steady_clock::now();
+
+        if (variant == 0) {
+            launchComputeAccelerationsKernel(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
+        } else {
+            launchComputeAccelerationsKernelShared(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
+        }
+
+        // Fin de temporización
+        auto end = std::chrono::steady_clock::now();
+        
+        std::chrono::duration<double> elapsed = end - start;
+        times[i] = elapsed.count();
+        totalTime += times[i];
+    }
+
+    // Cálculos estadísticos
+    double avgTime = totalTime / numRepetitions;
+    double variance = 0.0;
+    for (double t : times) {
+        variance += (t - avgTime) * (t - avgTime);
+    }
+    double stdDevTime = std::sqrt(variance / numRepetitions);
+
+    // Guardar resultados
+    GpuBenchmarkResult res;
+    res.n_bodies = n_bodies;
+    res.variant = variant;
+    res.blockDim = blockDim;
+    res.measureType = "kernel-only";
+    res.avgTime = avgTime;
+    res.stdDevTime = stdDevTime;
+    res.speedup = cpuAvgTime / avgTime;
+    
+    gpuResults.push_back(res);
+}
+
+// Mide el tiempo del paso completo, incluyendo transferencias H2D y D2H
+void Benchmark::benchmarkEndToEnd(int n_bodies, int variant, int blockDim) {
+    NBodySystem sys(1.0, 0.01);
+    sys.randomSystem(n_bodies, 42);
+
+    // Obtenemos el tiempo serial de la CPU para calcular el speedup
+    double cpuAvgTime = 0.0, cpuStdDev = 0.0;
+    auto cpuFunc = [&]() { sys.computeAccelerations(); };
+    runExperimentSimple(cpuFunc, cpuAvgTime, cpuStdDev);
+
+    std::vector<double> times(numRepetitions);
+    double totalTime = 0.0;
+
+    for (int i = 0; i < numRepetitions; ++i) {
+        // Inicio de temporización (Incluye TODO el paso temporal)
+        auto start = std::chrono::steady_clock::now();
+
+        // 1. Transferencia Host to Device (H2D) encapsulada en el constructor
+        CudaBuffer buffer(n_bodies, sys.getParticles());
+
+        // 2. Cómputo del Kernel + Sincronización
+        if (variant == 0) {
+            launchComputeAccelerationsKernel(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
+        } else {
+            launchComputeAccelerationsKernelShared(
+                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
+                buffer.getd_ax(), buffer.getd_ay(), 
+                1.0, 0.01, n_bodies, blockDim
+            );
+        }
+
+        // 3. Transferencia Device to Host (D2H) encapsulada en la recuperación
+        buffer.retrieveAccelerations(sys.getParticles());
+
+        // Fin de temporización
+        auto end = std::chrono::steady_clock::now();
+        
+        std::chrono::duration<double> elapsed = end - start;
+        times[i] = elapsed.count();
+        totalTime += times[i];
+    }
+
+    // Cálculos estadísticos
+    double avgTime = totalTime / numRepetitions;
+    double variance = 0.0;
+    for (double t : times) {
+        variance += (t - avgTime) * (t - avgTime);
+    }
+    double stdDevTime = std::sqrt(variance / numRepetitions);
+
+    // Guardar resultados
+    GpuBenchmarkResult res;
+    res.n_bodies = n_bodies;
+    res.variant = variant;
+    res.blockDim = blockDim;
+    res.measureType = "end-to-end";
+    res.avgTime = avgTime;
+    res.stdDevTime = stdDevTime;
+    res.speedup = cpuAvgTime / avgTime;
+    
+    gpuResults.push_back(res);
+}
+
+
+// Para exportar datos del clúster a .dat
+void Benchmark::saveGpuResultsToFile(const std::string& filename) {
+    std::ofstream outFile(filename);
+    if (!outFile.is_open()) {
+        std::cerr << "Error al abrir el archivo " << filename << " para escribir los resultados GPU.\n";
+        return;
+    }
+
+    // Cabecera del archivo de datos
+    outFile << std::setw(10) << "N_Bodies" 
+            << std::setw(10) << "Variant" 
+            << std::setw(12) << "BlockDim" 
+            << std::setw(15) << "MeasureType" 
+            << std::setw(15) << "AvgTime(s)" 
+            << std::setw(15) << "StdDev(s)" 
+            << std::setw(15) << "Speedup" << "\n";
+
+    for (const auto& res : gpuResults) {
+        outFile << std::setw(10) << res.n_bodies
+                << std::setw(10) << res.variant
+                << std::setw(12) << res.blockDim
+                << std::setw(15) << res.measureType
+                << std::setw(15) << res.avgTime
+                << std::setw(15) << res.stdDevTime
+                << std::setw(15) << res.speedup << "\n";
+    }
+
+    outFile.close();
+    std::cout << "Resultados GPU guardados exitosamente en: " << filename << "\n";
 }

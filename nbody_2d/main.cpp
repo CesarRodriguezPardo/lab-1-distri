@@ -74,8 +74,8 @@ static void runCase(int caseId,
                     int sim_type,
                     int syncType,
                     int scheduleType,
-                    int chunkSize,
-                    int method,
+                    int chunkSize, //blocksize
+                    int method, //atomic o shared
                     int taskType,
                     bool use_barrier) {
     NBodySystem system(G, epsilon);
@@ -90,12 +90,22 @@ static void runCase(int caseId,
     simulator.simulate(steps, energyFile, trajectoryFile, sim_type, syncType, scheduleType, chunkSize, method, taskType, use_barrier);
 }
 
+/*
 static void printModeHelp() {
     cout << "Modos disponibles:\n"
          << "  0 -> serial\n"
          << "  1 -> paralelo con omp for\n"
          << "  2 -> paralelo con tasks\n"
          << "  3 -> ejecutar todos los modos\n";
+}
+*/
+
+static void printModeHelpCUDA() {
+    cout << "Modos disponibles:\n"
+         << "  0 -> Ejecucion Serial (Baseline Lab 1)\n"
+         << "  1 -> Ejecucion CUDA (Simulacion completa)\n"
+         << "  2 -> Validacion tolerancias CPU vs GPU (Rol 3)\n"
+         << "  3 -> Ejecutar matriz de Benchmarks GPU (Rol 3)\n";
 }
 
 int main() {
@@ -143,6 +153,8 @@ int main() {
     }
 
 
+    //switchcase con OpenMP
+    /*
     printModeHelp();
     mode = readInt("Seleccione modo de simulacion: ");
     while (mode < 0 || mode > 3) {
@@ -184,6 +196,62 @@ int main() {
             runCase(3, "parallel_for_private", steps, nParticles, seed, dt, G, epsilon, sys_type, 1, 2, 1, 16, 2, -1, false);
             runCase(4, "tasks_private", steps, nParticles, seed, dt, G, epsilon, sys_type, 2, 2, scheduleType, chunkSize, 0, 0, false);
             break;
+    }
+    */
+
+    // Switchcase con CUDA y Benchmarks
+    printModeHelpCUDA();
+    mode = readInt("Seleccione modo de simulacion: ");
+    while (mode < 0 || mode > 3) {
+        cerr << "Modo no valido.\n";
+        printModeHelpCUDA();
+        mode = readInt("Seleccione modo de simulacion: ");
+    }
+
+    switch(mode) {
+        case 0:
+            // Serial (Baseline)
+            runCase(0, "serial", steps, nParticles, seed, dt, G, epsilon, sys_type, 0, 0, scheduleType, chunkSize, 0, -1, false);
+            break;
+            
+        case 1: {
+            // CUDA
+            int blockSize = readInt("Ingrese tamano de bloque (ej. 256): ");
+            int gpuMethod = readInt("Metodo de energia GPU - Reduccion compartida (0) o AtomicAdd (1): ");
+            
+            // Usamos sim_type = 3 para indicar CUDA dentro de tu NBodySimulator::simulate
+            // Pasamos blockSize en el argumento chunkSize, y gpuMethod en method.
+            runCase(1, "cuda", steps, nParticles, seed, dt, G, epsilon, sys_type, 3, 0, scheduleType, blockSize, gpuMethod, -1, false);
+            break;
+        }
+            
+        case 2: {
+            // Validación CPU vs GPU
+            Benchmark bench;
+            bench.compareCpuGpu(nParticles);
+            break;
+        }
+            
+        case 3: {
+            // Matriz de Benchmarks Obligatoria del Laboratorio
+            Benchmark bench;
+            std::vector<int> N_vals = {256, 512, 1024, 2000};
+            std::vector<int> block_vals = {64, 128, 256, 512, 1024};
+            
+            cout << "Ejecutando matriz de benchmarks. Esto puede tomar unos minutos...\n";
+            for(int n : N_vals) {
+                // v=0 (básico), v=1 (shared memory)
+                for(int v = 0; v <= 1; ++v) { 
+                    for(int b : block_vals) {
+                        cout << "Midiendo N=" << n << " | Variante=" << v << " | BlockDim=" << b << "\n";
+                        bench.benchmarkKernelOnly(n, v, b);
+                        bench.benchmarkEndToEnd(n, v, b);
+                    }
+                }
+            }
+            bench.saveGpuResultsToFile("benchmark_results.dat");
+            break;
+        }
     }
 
     return 0;
