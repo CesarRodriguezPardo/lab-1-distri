@@ -34,6 +34,9 @@ void Benchmark::runExperiment(int numThreads, const std::function<void(bool)>& f
                 double start_time = 0.0;
                 #pragma omp master
                 start_time = omp_get_wtime();
+                // Barrera: garantiza que el timestamp de master precede
+                // al trabajo de todas las hebras (evita carrera en la medición)
+                #pragma omp barrier
 
                 for (int i = 0; i < repsPerBatch; ++i) func(true);
 

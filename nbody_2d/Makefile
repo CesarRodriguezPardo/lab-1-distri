@@ -51,7 +51,7 @@ TEST_SRCS = tests/catch_amalgamated.cpp \
 # ─────────────────────────────────────────────────────────────
 #  Targets
 # ─────────────────────────────────────────────────────────────
-.PHONY: all test analysis plot clean benchmark benchmark-bin
+.PHONY: all test analysis plot clean benchmark benchmark-bin performance-plots
 
 # Target por defecto: compila el binario principal
 all: nbody
@@ -125,6 +125,13 @@ plot: analysis
 	@echo "     - speedup_plot.png"
 	@echo "     - efficiency_plot.png"
 	@echo "     - chunk_plot.png"
+
+# make performance-plots:
+#   Genera la imagen unificada performance_plots.png (6 gráficas Lab 2 GPU)
+#   a partir de benchmark_results.dat / energy_*.dat / trajectories_*.dat.
+#   Requiere python3 con matplotlib, numpy y pandas.
+performance-plots:
+	python3 $(SCRIPTS_DIR)/generate_plots.py
 
 # make clean: elimina binarios, datos generados y figuras
 clean:

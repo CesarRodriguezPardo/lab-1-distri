@@ -12,7 +12,7 @@ Este repositorio contiene una simulación computacional del problema de los N-Cu
 | **Martín Salinas**    |  2  | Diseño e implementación de paralelización, utilizando distintas cláusulas de OpenMP solicitadas.                                                        |
 | **Nicolás García**    |  3  | Desarrollo serial del sistema y encargado de implementar las físicas y el integrador Euler.                                                             |
 | **Sebastián Cassone** |  4  | Desarrollo del módulo de métricas (`MetricsCalculator`), y benchmark para implementación de mediciones.                                                 |
-| **César Rodríguez**   |  5  | Pruebas unitarias, automatización del entorno de compilación (Makefile), containerización (Dockerfile), scripting analítico (Gnuplot) y documentación.  |
+| **César Rodríguez**   |  5  | Pruebas unitarias, automatización del entorno de compilación (Makefile), containerización (Dockerfile), scripting analítico (Gnuplot y Python/matplotlib) y documentación.  |
 
 ### Hitos del Proyecto
 
@@ -39,8 +39,8 @@ La arquitectura del software está fuertemente desacoplada y orientada a objetos
 
 El código hace uso de una amplia gama de pragmas obligatorios:
 
-- **`#pragma omp parallel for schedule(static/dynamic)`**: Localizados en `NBodySystem.cpp` (`computeAccelerations`) y `Benchmark.cpp` para distribuir ciclos iterativos For.
-- **`#pragma omp atomic`**: Ubicado en `Integrator.cpp` y `NBodySystem.cpp` para resolver la acumulación de variables cruzadas en memoria compartida, previniendo _data races_.
+- **`#pragma omp parallel for schedule(static/dynamic)`**: Localizados en `NBodySystem.cpp` (`computeAccelerations`) para distribuir ciclos iterativos For.
+- **`#pragma omp atomic`**: Ubicado en `Integrator.cpp` para resolver la acumulación de variables cruzadas en memoria compartida, previniendo _data races_.
 - **`#pragma omp critical`**: Presente en `Integrator.cpp` (variante 1) para demostrar bloqueos mutuos seguros como contraste educativo.
 - **`#pragma omp for nowait`**: Empleado en `Integrator.cpp` (variante 2) para eludir la barrera sintética implícita tras el final de un bucle For restrictivo.
 - **`reduction`, `firstprivate`, `lastprivate`**: Aplicados y demostrados en `MetricsCalculator.cpp` al efectuar sumatorias compartidas (como la reducción agregada de la Energía Total a partir de pasos intermedios de los hilos de trabajador).
@@ -103,16 +103,18 @@ Sirve para compilar el proyecto y ejecutar `make test` en CPU sin usar GPU, pero
 
 Para el smoke opcional de GPU se usa una imagen separada en [nbody_2d/Dockerfile.cuda](nbody_2d/Dockerfile.cuda), que permite verificar `nvcc` sin tocar el gate CPU principal.
 
-### Benchmark GPU en preparación
+### Benchmarks GPU (Lab 2)
 
-El benchmark CPU sigue siendo el baseline actual. Al ejecutar `make benchmark` también se generan artefactos de planificación para la futura parte CUDA:
+Los benchmarks GPU ya están implementados en el binario `nbody` (modo 3 del menú): ejecutan la matriz obligatoria N ∈ {256, 512, 1024, 2000} × variantes de kernel {básico, shared-memory} × `blockDim.x` ∈ {64, 128, 256, 512, 1024}, con mediciones kernel-only y end-to-end, y exportan `benchmark_results.dat` (incluye `CpuStdDev` y `SpeedupError` propagados según la fórmula 4 del enunciado).
+
+Las mediciones oficiales se ejecutan únicamente en el clúster DIINF mediante el workflow manual [`benchmarks_diinf.yml`](.github/workflows/benchmarks_diinf.yml), que además genera `energy_cuda.dat`, `trajectories_cuda.dat` y `cluster_run.log`, y los sube como artefactos.
+
+Por su parte, `make benchmark` sigue generando los baselines CPU y artefactos de planificación:
 
 - `gpu_benchmark_plan.dat`
 - `gpu_kernel_only.dat`
 - `gpu_end_to_end.dat`
 - `cpu_vs_gpu.dat`
-
-Esos archivos dejan preparado el esquema de comparación pedido por el laboratorio, pero la implementación GPU real sigue pendiente.
 
 ### Reproducibilidad
 
@@ -127,6 +129,9 @@ make plot
 
 # Dispara la ejecución del cronómetro estadístico (Escalamiento)
 make benchmark
+
+# Genera la figura unificada 2×3 performance_plots.png (requiere los .dat del clúster)
+make performance-plots
 ```
 
 ---
