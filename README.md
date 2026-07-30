@@ -45,7 +45,7 @@ El código hace uso de una amplia gama de pragmas obligatorios:
 - **`#pragma omp for nowait`**: Empleado en `Integrator.cpp` (variante 2) para eludir la barrera sintética implícita tras el final de un bucle For restrictivo.
 - **`reduction`, `firstprivate`, `lastprivate`**: Aplicados y demostrados en `MetricsCalculator.cpp` al efectuar sumatorias compartidas (como la reducción agregada de la Energía Total a partir de pasos intermedios de los hilos de trabajador).
 
-**URL del Repositorio:** []
+****URL del Repositorio:** [https://github.com/CesarRodriguezPardo/lab-1-distri](https://github.com/CesarRodriguezPardo/lab-1-distri)
 
 ---
 
