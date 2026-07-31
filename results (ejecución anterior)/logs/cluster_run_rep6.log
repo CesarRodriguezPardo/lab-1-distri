@@ -1,0 +1,59 @@
+=== CLUSTER RUN LOG ===
+JobID: 1309647
+ArrayJobID: 1309641
+ArrayTaskID: 6
+Node: xigpu01
+GPU: NVIDIA A30, 580.173.02, 24576 MiB
+CUDA: Cuda compilation tools, release 12.1, V12.1.105
+Flags: nvcc -O3 -std=c++17 -I. -Ikernels -Xcompiler -Wall,-Wextra,-fopenmp
+Matrix: N={256,512,1024,2000} x variants={0,1} x blockDim={64,128,256,512,1024} x {kernel-only,end-to-end} (10 reps internas)
+Date: jue 30 jul 2026 17:22:21 -04
+=======================
+Ingrese seed: Ingrese tipo de sistema, aleatorio (0), binario (1) o disco (2): Ingrese numero de particulas: Ingrese dt: Ingrese G: Ingrese epsilon: Ingrese numero de pasos: Modos disponibles:
+  0 -> Ejecucion Serial (Baseline Lab 1)
+  1 -> Ejecucion CUDA (Simulacion completa)
+  2 -> Validacion tolerancias CPU vs GPU (Rol 3)
+  3 -> Ejecutar matriz de Benchmarks GPU (Rol 3)
+Seleccione modo de simulacion: Ejecutando matriz de benchmarks. Esto puede tomar unos minutos...
+Midiendo N=256 | Variante=0 | BlockDim=64
+Midiendo N=256 | Variante=0 | BlockDim=128
+Midiendo N=256 | Variante=0 | BlockDim=256
+Midiendo N=256 | Variante=0 | BlockDim=512
+Midiendo N=256 | Variante=0 | BlockDim=1024
+Midiendo N=256 | Variante=1 | BlockDim=64
+Midiendo N=256 | Variante=1 | BlockDim=128
+Midiendo N=256 | Variante=1 | BlockDim=256
+Midiendo N=256 | Variante=1 | BlockDim=512
+Midiendo N=256 | Variante=1 | BlockDim=1024
+Midiendo N=512 | Variante=0 | BlockDim=64
+Midiendo N=512 | Variante=0 | BlockDim=128
+Midiendo N=512 | Variante=0 | BlockDim=256
+Midiendo N=512 | Variante=0 | BlockDim=512
+Midiendo N=512 | Variante=0 | BlockDim=1024
+Midiendo N=512 | Variante=1 | BlockDim=64
+Midiendo N=512 | Variante=1 | BlockDim=128
+Midiendo N=512 | Variante=1 | BlockDim=256
+Midiendo N=512 | Variante=1 | BlockDim=512
+Midiendo N=512 | Variante=1 | BlockDim=1024
+Midiendo N=1024 | Variante=0 | BlockDim=64
+Midiendo N=1024 | Variante=0 | BlockDim=128
+Midiendo N=1024 | Variante=0 | BlockDim=256
+Midiendo N=1024 | Variante=0 | BlockDim=512
+Midiendo N=1024 | Variante=0 | BlockDim=1024
+Midiendo N=1024 | Variante=1 | BlockDim=64
+Midiendo N=1024 | Variante=1 | BlockDim=128
+Midiendo N=1024 | Variante=1 | BlockDim=256
+Midiendo N=1024 | Variante=1 | BlockDim=512
+Midiendo N=1024 | Variante=1 | BlockDim=1024
+Midiendo N=2000 | Variante=0 | BlockDim=64
+Midiendo N=2000 | Variante=0 | BlockDim=128
+Midiendo N=2000 | Variante=0 | BlockDim=256
+Midiendo N=2000 | Variante=0 | BlockDim=512
+Midiendo N=2000 | Variante=0 | BlockDim=1024
+Midiendo N=2000 | Variante=1 | BlockDim=64
+Midiendo N=2000 | Variante=1 | BlockDim=128
+Midiendo N=2000 | Variante=1 | BlockDim=256
+Midiendo N=2000 | Variante=1 | BlockDim=512
+Midiendo N=2000 | Variante=1 | BlockDim=1024
+Resultados GPU guardados exitosamente en: benchmark_results.dat
+ALL BENCHMARKS COMPLETED rc=0: jue 30 jul 2026 17:23:34 -04

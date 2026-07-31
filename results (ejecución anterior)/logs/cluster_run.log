@@ -1,0 +1,14 @@
+=== CLUSTER RUN LOG (MAESTRO) ===
+ArrayJobID: 1309641 (tareas 1-10, %2)
+Job previo fallido: 1309631 (dirs inexistentes, exit 53 - corregido)
+Nodos usados: xigpu01, xigpu02
+GPU: NVIDIA A30, 24576 MiB, driver 580.173.02
+CUDA toolkit: 12.1 (V12.1.105) /usr/local/cuda-12.1
+Flags: nvcc -O3 -std=c++17 -I. -Ikernels -Xcompiler -Wall,-Wextra,-fopenmp
+Repo: ~/lab-1-distri/nbody_2d, main @ 452b3dc
+Matriz: N={256,512,1024,2000} x variantes={0 basica,1 shared} x blockDim={64,128,256,512,1024} x modos={kernel-only,end-to-end}
+Repeticiones: 10 replicas independientes (job array) x 10 reps internas por punto
+Consolidacion: media entre replicas; StdDev/SpeedupError = desv.est. entre replicas
+Simulacion figuras: random N=1000, steps=100, dt=0.01, G=1.0, eps=0.01, block=256, shared
+Fecha ejecucion: jue 30 jul 2026 17:29:54 -04
+================================
