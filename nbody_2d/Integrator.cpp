@@ -118,7 +118,7 @@ void Integrator::integrateEulerGpu(CudaBuffer* buffer) {
     int n = static_cast<int>(particles.size());
 
     //Sincronizar y traer aceleraciones (D2H)
-    buffer->retrieveAccelerations(particles);
+    //buffer->retrieveAccelerations(particles); Esto ya se hace en computeAccelerationsGpu
 
     //Integrar en CPU (Kick y Drift)
     for (int i = 0; i < n; ++i) {

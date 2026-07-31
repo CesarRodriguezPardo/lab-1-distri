@@ -362,14 +362,10 @@ void Benchmark::compareCpuGpu(int n_bodies) {
     int blockSize = 256;
     
     // Usamos el lanzador del kernel para la GPU
-    launchComputeAccelerationsKernel(
-        buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(), 
-        buffer.getd_ax(), buffer.getd_ay(), 
-        G, eps, n_bodies, blockSize
-    );
+    sys_gpu.computeAccelerationsGpu(0, blockSize); // Variante básica para la comparación
     
     // Obtenemos las aceleraciones de vuelta a la CPU para comparación
-    buffer.retrieveAccelerations(sys_gpu.getParticles());
+    // buffer.retrieveAccelerations(sys_gpu.getParticles());
 
     // 4. Comparación con Tolerancia (posiblemente requeriría ajuste)
     double rtol = 1e-4;
