@@ -76,6 +76,7 @@ static void runCase(int caseId,
                     int scheduleType,
                     int chunkSize, //blocksize
                     int method, //atomic o shared
+                    int kernelVariant,
                     int taskType,
                     bool use_barrier) {
     NBodySystem system(G, epsilon);
@@ -87,7 +88,7 @@ static void runCase(int caseId,
     const string trajectoryFile = "trajectories_" + label + ".dat";
 
     cout << "\n=== Caso " << caseId << ": " << label << " ===" << endl;
-    simulator.simulate(steps, energyFile, trajectoryFile, sim_type, syncType, scheduleType, chunkSize, method, taskType, use_barrier);
+    simulator.simulate(steps, energyFile, trajectoryFile, sim_type, syncType, scheduleType, chunkSize, method, kernelVariant, taskType, use_barrier);
 }
 
 /*
@@ -119,9 +120,11 @@ int main() {
     int mode;
     int scheduleType = 1;
     int chunkSize = 1;
-    int syncType = 0;
-    int method = 0;
-    bool use_barrier = false;
+    //int syncType = 0;
+    int energyMethod = 0;
+    int kernelVariant = 0;
+    int blockSize = 256;
+    //bool use_barrier = false;
 
     seed = readInt("Ingrese seed: ");
 
@@ -211,17 +214,18 @@ int main() {
     switch(mode) {
         case 0:
             // Serial (Baseline)
-            runCase(0, "serial", steps, nParticles, seed, dt, G, epsilon, sys_type, 0, 0, scheduleType, chunkSize, 0, -1, false);
+            runCase(0, "serial", steps, nParticles, seed, dt, G, epsilon, sys_type, 0, 0, scheduleType, chunkSize, 0, 0, -1, false);
             break;
             
         case 1: {
             // CUDA
-            int blockSize = readInt("Ingrese tamano de bloque (ej. 256): ");
-            int gpuMethod = readInt("Metodo de energia GPU - Reduccion compartida (0) o AtomicAdd (1): ");
+            blockSize = readInt("Ingrese tamano de bloque (ej. 256): ");
+            energyMethod = readInt("Metodo de energia GPU - Reduccion compartida (0) o AtomicAdd (1): ");
+            kernelVariant = readInt("Variante de kernel - Basico (0) o Shared Memory (1): ");
             
             // Usamos sim_type = 3 para indicar CUDA dentro de tu NBodySimulator::simulate
             // Pasamos blockSize en el argumento chunkSize, y gpuMethod en method.
-            runCase(1, "cuda", steps, nParticles, seed, dt, G, epsilon, sys_type, 3, 0, scheduleType, blockSize, gpuMethod, -1, false);
+            runCase(1, "cuda", steps, nParticles, seed, dt, G, epsilon, sys_type, 3, 0, scheduleType, blockSize, energyMethod, kernelVariant, -1, false);
             break;
         }
             

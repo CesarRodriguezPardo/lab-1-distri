@@ -43,6 +43,7 @@ public:
                   int  scheduleType = 1,
                   int  chunkSize   = 10,
                   int  method      = 0,
+                  int  kernelVariant = 0,
                   int  taskType    = -1,
                   bool use_barrier = false);
 

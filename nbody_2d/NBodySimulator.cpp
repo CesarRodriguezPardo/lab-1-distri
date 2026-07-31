@@ -1,4 +1,4 @@
-# include "NBodySimulator.h"
+#include "NBodySimulator.h"
 
 
 extern void launchKineticAtomic(CudaBuffer* buf, double* d_K, int N, int blockSize);
@@ -278,7 +278,7 @@ void NBodySimulator::processBodies(std::ostream &energyFile, int taskType,int sy
 }
 
 
-void NBodySimulator::simulate(int steps, std::string energyFilename, std::string trajectoryFilename, int sim_type, int syncType, int scheduleType, int chunkSize, int method, int taskType, bool use_barrier) {
+void NBodySimulator::simulate(int steps, std::string energyFilename, std::string trajectoryFilename, int sim_type, int syncType, int scheduleType, int chunkSize, int method, int kernelVariant, int taskType, bool use_barrier) {
     //creacion del archivo de energias y trayectorias .dat
     std::ofstream energyFile;
     std::ofstream trajectoryFile;
@@ -321,48 +321,76 @@ void NBodySimulator::simulate(int steps, std::string energyFilename, std::string
     
     else if(sim_type == 3) {
         int N = system->getCount();
-        double G = system->getG_const();
-        double eps = system->getEps();
+        //double G = system->getG_const();
+        //double eps = system->getEps();
         int blockSize = chunkSize; 
         
         CudaBuffer buffer(N, system->getParticles());
 
         if (method == 0) { //memoria compartida con shared
-            for (int step = 0; step < steps; ++step){
-                launchComputeAccelerationsKernelShared(
-                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(),
-                buffer.getd_ax(), buffer.getd_ay(),
-                G, eps, N, blockSize
-                );
-                
-                this->stepEulerGpu(&buffer);
-                this->calculateEnergyGpu(method, &buffer, energyFile);
-                
-                system->saveSnapshot(trajectoryFile, step); 
-                
-                if (step % 10 == 0) { 
-                    std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+            if (kernelVariant == 0) {
+                for (int step = 0; step < steps; ++step){
+                    system->computeAccelerationsGpu(0, blockSize); // Usamos la variante básica para este método
+                    this->stepEulerGpu(&buffer);
+                    this->calculateEnergyGpu(method, &buffer, energyFile);
+                    
+                    system->saveSnapshot(trajectoryFile, step); 
+                    
+                    if (step % 10 == 0) { 
+                        std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+                    }
+                    std::cout.flush();
                 }
-                std::cout.flush();
+            } else if (kernelVariant == 1) {
+                for (int step = 0; step < steps; ++step){
+                    system->computeAccelerationsGpu(1, blockSize); // Usamos la variante con shared memory para este método
+                    
+                    this->stepEulerGpu(&buffer);
+                    this->calculateEnergyGpu(method, &buffer, energyFile);
+                    
+                    system->saveSnapshot(trajectoryFile, step); 
+                    
+                    if (step % 10 == 0) { 
+                        std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+                    }
+                    std::cout.flush();
+                }
+            } else {
+                std::cerr << "Variante de kernel desconocida: " << kernelVariant << std::endl;
+                return;
             }
         } 
         else if(method == 1) { //atomic add
-            for (int step = 0; step < steps; ++step){
-                launchComputeAccelerationsKernel(
-                buffer.getd_mass(), buffer.getd_x(), buffer.getd_y(),
-                buffer.getd_ax(), buffer.getd_ay(),
-                G, eps, N, blockSize
-                );
-                
-                this->stepEulerGpu(&buffer);
-                this->calculateEnergyGpu(method, &buffer, energyFile);
-                
-                system->saveSnapshot(trajectoryFile, step); 
-                
-                if (step % 10 == 0) { 
-                    std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+            if (kernelVariant == 0) {
+                for (int step = 0; step < steps; ++step){
+                    system->computeAccelerationsGpu(0, blockSize); // Usamos la variante básica para este método
+                    this->stepEulerGpu(&buffer);
+                    this->calculateEnergyGpu(method, &buffer, energyFile);
+                    
+                    system->saveSnapshot(trajectoryFile, step); 
+                    
+                    if (step % 10 == 0) { 
+                        std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+                    }
+                    std::cout.flush();
                 }
-                std::cout.flush();
+            } else if (kernelVariant == 1) {
+                for (int step = 0; step < steps; ++step){
+                    system->computeAccelerationsGpu(1, blockSize); // Usamos la variante con shared memory para este método
+                    
+                    this->stepEulerGpu(&buffer);
+                    this->calculateEnergyGpu(method, &buffer, energyFile);
+                    
+                    system->saveSnapshot(trajectoryFile, step); 
+                    
+                    if (step % 10 == 0) { 
+                        std::cout << "ciclo " << step + 1  << " listo (CUDA)" << std::endl; 
+                    }
+                    std::cout.flush();
+                }
+            } else {
+                std::cerr << "Variante de kernel desconocida: " << kernelVariant << std::endl;
+                return;
             }
         }
         else {
