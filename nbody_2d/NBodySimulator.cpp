@@ -1,4 +1,14 @@
 #include "NBodySimulator.h"
+#include <memory>
+
+#define CUDA_CHECK_THROW(call) \
+    do { \
+        cudaError_t err = call; \
+        if (err != cudaSuccess) { \
+            throw std::runtime_error("Error CUDA en cudaMalloc: " + \
+                std::string(cudaGetErrorString(err))); \
+        } \
+    } while (0)
 
 
 extern void launchKineticAtomic(CudaBuffer* buf, double* d_K, int N, int blockSize);
@@ -83,30 +93,32 @@ void NBodySimulator::calculateEnergyGpu(int method, CudaBuffer* buffer, std::ost
     double eps = system->getEps();
     int blockSize = 256; 
 
-    double* d_total_K;
-    double* d_total_U;
-    CUDA_CHECK(cudaMalloc((void**)&d_total_K, sizeof(double)));
-    CUDA_CHECK(cudaMalloc((void**)&d_total_U, sizeof(double)));
+    double* ptr_K = nullptr;
+    double* ptr_U = nullptr;
 
-    CUDA_CHECK(cudaMemset(d_total_K, 0, sizeof(double)));
-    CUDA_CHECK(cudaMemset(d_total_U, 0, sizeof(double)));
+    CUDA_CHECK_THROW(cudaMalloc((void**)&ptr_K, sizeof(double)));
+    std::unique_ptr<double, decltype(&cudaFree)> d_total_K(ptr_K, cudaFree);
+
+    CUDA_CHECK_THROW(cudaMalloc((void**)&ptr_U, sizeof(double)));
+    std::unique_ptr<double, decltype(&cudaFree)> d_total_U(ptr_U, cudaFree); 
+
+
+    CUDA_CHECK(cudaMemset(d_total_K.get(), 0, sizeof(double)));
+    CUDA_CHECK(cudaMemset(d_total_U.get(), 0, sizeof(double)));
 
     if (method == 1) {
-        launchKineticAtomic(buffer, d_total_K, N, blockSize);
-        launchPotentialAtomic(buffer, d_total_U, N, G, eps, blockSize);
+        launchKineticAtomic(buffer, d_total_K.get(), N, blockSize);
+        launchPotentialAtomic(buffer, d_total_U.get(), N, G, eps, blockSize);
     } else {
-        launchKineticShared(buffer, d_total_K, N, blockSize);
-        launchPotentialShared(buffer, d_total_U, N, G, eps, blockSize);
+        launchKineticShared(buffer, d_total_K.get(), N, blockSize);
+        launchPotentialShared(buffer, d_total_U.get(), N, G, eps, blockSize);
     }
 
     CUDA_CHECK(cudaDeviceSynchronize());
 
     double h_total_K, h_total_U;
-    CUDA_CHECK(cudaMemcpy(&h_total_K, d_total_K, sizeof(double), cudaMemcpyDeviceToHost));
-    CUDA_CHECK(cudaMemcpy(&h_total_U, d_total_U, sizeof(double), cudaMemcpyDeviceToHost));
-
-    CUDA_CHECK(cudaFree(d_total_K));
-    CUDA_CHECK(cudaFree(d_total_U));
+    CUDA_CHECK(cudaMemcpy(&h_total_K, d_total_K.get(), sizeof(double), cudaMemcpyDeviceToHost));
+    CUDA_CHECK(cudaMemcpy(&h_total_U, d_total_U.get(), sizeof(double), cudaMemcpyDeviceToHost));
 
     double E_total = h_total_K + h_total_U;
     
