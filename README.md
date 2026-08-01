@@ -157,15 +157,19 @@ Tres agentes implementados como scripts Python en [`.github/agents/`](.github/ag
 
 Los benchmarks GPU se ejecutan en un **runner self-hosted del clúster DIINF** mediante el workflow manual [`benchmarks_diinf.yml`](.github/workflows/benchmarks_diinf.yml) (`workflow_dispatch`, timeout 180 min). Los resultados se suben como artefacto `diinf-benchmarks` (retención 14 días).
 
+> **Ejecución final realizada (30-jul-2026):** la matriz completa se corrió en el clúster Xi del DIINF vía Slurm (job array `1309641`, 10 réplicas independientes × 10 repeticiones internas por punto, nodos `xigpu01`/`xigpu02`). Evidencia consolidada en [`results/`](results/): [`results/raw/benchmark_results.dat`](results/raw/benchmark_results.dat) (80 configuraciones), [`results/logs/cluster_run.log`](results/logs/cluster_run.log) (log maestro con metadata), [`results/figures/performance_plots.png`](results/figures/performance_plots.png) y el análisis completo en [`results/INFORME_TECNICO.md`](results/INFORME_TECNICO.md).
+
 ### 6.1 Ficha técnica del entorno de pruebas final
 
 | Componente | Valor |
 | :--------- | :---- |
-| **Nodo GPU** | `[PENDIENTE: EJECUTAR EN CLÚSTER — comando: nvidia-smi --query-gpu=name,memory.total --format=csv]` (ej. NVIDIA RTX / A100) |
-| **Driver NVIDIA** | `[PENDIENTE: EJECUTAR EN CLÚSTER — comando: nvidia-smi]` (campo "Driver Version") |
-| **CUDA Version (driver)** | `[PENDIENTE: EJECUTAR EN CLÚSTER — comando: nvidia-smi]` (campo "CUDA Version") |
-| **NVCC / Toolkit** | `[PENDIENTE: EJECUTAR EN CLÚSTER — comando: nvcc --version]` (se espera CUDA 12.x) |
-| CPU / OS | Registrados en `cluster_run.log` durante la ejecución del workflow |
+| **Nodo GPU** | NVIDIA **A30**, 24576 MiB HBM2 (nodos `xigpu01` / `xigpu02`, partición `GPU`, `--gres=gpu:A30:1`) |
+| **Driver NVIDIA** | **580.173.02** |
+| **CUDA Toolkit / NVCC** | **12.1** (`V12.1.105`, en `/usr/local/cuda-12.1`) |
+| **Flags de compilación** | `nvcc -O3 -std=c++17 -I. -Ikernels -Xcompiler "-Wall,-Wextra,-fopenmp"`, LDFLAGS `-lcudart` |
+| Host compiler / OS | g++ 11.x (vía `nvcc`), Ubuntu 22.04, Slurm 22.05.2 — registrados en `results/logs/cluster_run.log` |
+
+> **Advertencia de entorno (clúster Xi):** el symlink `/usr/local/cuda` apunta a **CUDA 10.2**, que no soporta `-std=c++17`. Es obligatorio exportar `PATH=/usr/local/cuda-12.1/bin:$PATH` y `LD_LIBRARY_PATH=/usr/local/cuda-12.1/lib64:$LD_LIBRARY_PATH` antes de compilar (detalle en `results/INFORME_TECNICO.md` §2).
 
 ### 6.2 Comandos exactos para reproducir la matriz obligatoria
 
@@ -260,18 +264,26 @@ Como legado del Lab 1 se conservan los scripts gnuplot (`scripts/*.gnu`): `make 
 
 ### 9.1 Resumen de resultados GPU
 
+Medidos en el clúster Xi DIINF (A30, job array Slurm `1309641`, 10 réplicas × 10 repeticiones internas; consolidado = media entre réplicas, σ = desv. entre réplicas). Análisis detallado en [`results/INFORME_TECNICO.md`](results/INFORME_TECNICO.md) y figuras en [`results/figures/performance_plots.png`](results/figures/performance_plots.png).
+
 | Métrica | Resultado |
 | :------ | :-------- |
-| Validación CPU vs GPU (modo 2, `rtol=1e-4`, `atol=1e-8`) | `[PENDIENTE: EJECUTAR EN CLÚSTER — comando: printf "42\n0\n1000\n0.01\n1.0\n0.1\n100\n2\n" \| ./nbody]` (se espera `[EXITO]`) |
-| Mejor speedup kernel-only (N=2000, mejor variante/blockDim) | `[PENDIENTE: EJECUTAR EN CLÚSTER — comando: printf "42\n0\n1000\n0.01\n1.0\n0.1\n100\n3\n" \| ./nbody → benchmark_results.dat]` |
-| Mejor speedup end-to-end (N=2000) | `[PENDIENTE: EJECUTAR EN CLÚSTER — mismo comando]` |
-| `blockDim.x` óptimo observado | `[PENDIENTE: EJECUTAR EN CLÚSTER — panel (c) de performance_plots.png]` |
-| Ganancia de la variante shared-memory vs básica | `[PENDIENTE: EJECUTAR EN CLÚSTER — panel (f) de performance_plots.png]` |
-| Deriva de energía en simulación CUDA (500 pasos) | `[PENDIENTE: EJECUTAR EN CLÚSTER — energy_cuda.dat → panel (e)]` |
+| Validación CPU vs GPU (modo 2, `rtol=1e-4`, `atol=1e-8`) | **`[EXITO]`** — todas las aceleraciones dentro de tolerancia (N=32, seed=42, kernel básico). Además: suite Catch2 CPU **197 assertions / 50 test cases PASS** y smoke test GPU (N=3) exitoso. |
+| Mejor speedup **kernel-only** (N=2000) | **66.2× ± 19.9** — variante shared-memory, `blockDim=128` (T_GPU = 0.666 ms vs T_CPU serial = 44.07 ms) |
+| Mejor speedup **end-to-end** (N=2000) | **44.4×** — variante shared-memory, `blockDim=128` |
+| `blockDim.x` óptimo observado | **128** en prácticamente toda la matriz; `blockDim=1024` degrada ~2.4× (menor ocupación de SMs y tile shared de 24 KB) |
+| Ganancia shared-memory vs básica | **~1.2× estable** (1.19×–1.22× kernel-only), independiente de N — consistente con mitigación constante del cuello de botella de memoria global |
+| Deriva de energía en simulación CUDA | **−0.072 %** en 5000 pasos (oscilación 0.55 %; showcase `diskSystem` N=200, dt=0.001, ε=0.1, t=5.0) |
+
+**Escalamiento con N (kernel-only, mejor configuración):** 7.4× (N=256) → 16.0× (N=512) → 33.2× (N=1024) → **66.2×** (N=2000). El speedup end-to-end converge al kernel-only a medida que N crece porque el overhead de transferencias H2D/D2H es ~constante (0.27–0.31 ms) mientras el kernel crece O(N²): pesa 70 % del paso en N=256 pero solo 28 % en N=2000. La predicción de Amdahl con fracción serial decreciente f_s(N) reproduce los speedups e2e medidos con **error < 2 %**.
+
+> **Nota sobre el showcase físico:** una primera corrida con `randomSystem` (N=1000, dt=0.01, ε=0.01) derivó +2131 % en energía (sistema no virializado → colapso con *slingshots* numéricos); se re-parametrizó a disco con dt=0.001/ε=0.1 obteniendo la conservación reportada. Los datos originales quedaron archivados sin modificar en `results/raw/legacy_random_dt0.01/` y el análisis del incidente está en `results/INFORME_TECNICO.md` §7.
 
 ### 9.2 Discusión: Ley de Amdahl y fracción serial
 
 La simulación CUDA calcula las **fuerzas en GPU**, pero la **integración de Euler (kick/drift) se ejecuta en el host** (`Integrator::integrateEulerGpu`): por cada paso se transfieren aceleraciones D2H y posiciones/velocidades H2D. Esa transferencia + integración CPU constituye una **fracción serial** $f_s$ estimable desde los propios benchmarks como $f_s \approx (T_{e2e} - T_{kernel}) / T_{e2e}$, que acota el speedup extremo a $1/f_s$ según Amdahl (panel (d)). El diseño permite cuantificar exactamente ese costo al medir por separado *kernel-only* (buffer fuera del timer) y *end-to-end* (H2D + kernel + D2H), ambos con `std::chrono::steady_clock` en host y `cudaDeviceSynchronize()` antes de detener el reloj.
+
+**Medido en el clúster:** $f_s$ **decrece con N** — 0.70 (N=256) → 0.57 (N=512) → 0.41 (N=1024) → 0.28 (N=2000) — porque el overhead de transferencias es ~constante (0.27–0.31 ms) y el kernel crece O(N²). Por tanto no existe un techo único de Amdahl: la "asíntota" $1/f_s$ crece con N y la GPU aprovecha mejor los problemas grandes. El modelo `S_e2e = S_kernel / (1 + f_s·(S_kernel − 1))` reproduce las mediciones con **error < 2 %** (detalle en `results/INFORME_TECNICO.md` §6.5).
 
 ### 9.3 Supuestos y límites (hardware/modelo)
 
