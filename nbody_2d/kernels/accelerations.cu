@@ -131,7 +131,6 @@ void launchComputeAccelerationsKernel(
         d_mass, d_x, d_y, d_ax, d_ay, G, eps, N
     );
     CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
 }
 
 void launchComputeAccelerationsKernelShared(
@@ -151,5 +150,4 @@ void launchComputeAccelerationsKernelShared(
         d_mass, d_x, d_y, d_ax, d_ay, G, eps, N
     );
     CUDA_CHECK(cudaGetLastError());
-    CUDA_CHECK(cudaDeviceSynchronize());
 }
