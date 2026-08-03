@@ -45,9 +45,24 @@ jobs:
             nbody-2d-ci \
             bash -lc "make benchmark-bin"
 
+      - name: Ejecutar benchmarks CPU (make benchmark)
+        run: |
+          docker run --rm \
+            -v "${{ github.workspace }}/nbody_2d:/workspace" \
+            -w /workspace \
+            nbody-2d-ci \
+            bash -lc "make benchmark"
+
+      - name: Verificar artefactos de benchmark CPU generados
+        run: |
+          test -f nbody_2d/scaling_parallel.dat
+          test -f nbody_2d/scaling_tasks.dat
+          test -f nbody_2d/chunk_schedule.dat
+          test -f nbody_2d/full_simulation_cpu.dat
+
       - name: Nota de alcance
         run: |
-          echo "Este CI valida compilación y tests CPU, y compila (sin ejecutar) el binario de benchmarks para detectar roturas en la ruta GPU/benchmark. Benchmarks finales y mediciones GPU se ejecutan fuera de CI."
+          echo "Este CI valida compilación y tests CPU, y además ejecuta benchmarks CPU para detectar regresiones funcionales/performance base. Benchmarks finales y mediciones GPU se ejecutan fuera de CI (cluster DIINF)."
 
       - name: Guardar artefacto de test
         uses: actions/upload-artifact@v4
@@ -57,4 +72,12 @@ jobs:
           path: |
             nbody_2d/test_runner
             nbody_2d/benchmark
+            nbody_2d/scaling_parallel.dat
+            nbody_2d/scaling_tasks.dat
+            nbody_2d/chunk_schedule.dat
+            nbody_2d/full_simulation_cpu.dat
+            nbody_2d/gpu_benchmark_plan.dat
+            nbody_2d/gpu_kernel_only.dat
+            nbody_2d/gpu_end_to_end.dat
+            nbody_2d/cpu_vs_gpu.dat
           retention-days: 7

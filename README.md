@@ -16,7 +16,7 @@ Este repositorio contiene una simulación computacional del problema gravitatori
 | **Martín Salinas**    | Rol 2: Host/Device y Memoria       | RAII `nbody_2d/CudaBuffer.h`, `nbody_2d/NBodySimulator.cpp`, Sincronización correcta en `nbody_2d/`.                                                                                                              | Wrapper RAII de memoria device (7 `cudaMalloc`, `cudaFree` en destructor, copia prohibida, move semantics), conversión AoS→SoA en host, transferencias H2D/D2H (`updateDeviceKinematics`, `retrieveAccelerations`), macro `CUDA_CHECK`.                                                                                                                                                                    |
 | **Nicolás García**    | Rol 3: Integración y Validación    | `nbody_2d/Integrator.cpp` (`integrateEulerGpu`), `nbody_2d/NBodySimulator.cpp` (simulación CUDA, `calculateEnergyGpu`), `nbody_2d/Benchmark.cpp` (`compareCpuGpu`, matriz GPU), `nbody_2d/main.cpp` (modos 2 y 3) | Integración Euler en host tras `cudaDeviceSynchronize()` (D2H de aceleraciones → kick/drift en CPU → H2D de kinematics), validación numérica CPU vs GPU con `rtol=1e-4` / `atol=1e-8`, implementación de la matriz obligatoria de benchmarks y exportación a `benchmark_results.dat`.                                                                                                                      |
 | **César Rodríguez**   | Rol 4: Git, Releases y Agentes     | `.github/agents/*.py`, `.github/workflows/agent_documenter.yml`, `agent_bug_reviewer.yml`, `agent_mr_reviewer.yml`, `.github/workflows/release_tag.yml`, `.github/GIT_FLOW.md`, `CHANGELOG.md`                    | Implementación de los tres agentes de IA (PRs #24, #44, #48), reglas de protección de `main` y flujo `feature/*` + `fix/*` con vinculación `Closes #N`, mantención del CHANGELOG (Keep a Changelog), automatización del tag/release `v2.0.0-lab2`.                                                                                                                                                         |
-| **Sebastián Cassone** | Rol 5: Calidad, CI y Visualización | `.github/workflows/ci.yml`, `gpu_optional.yml`, `build_base_container.yml`, `nbody_2d/Dockerfile`, `nbody_2d/Dockerfile.cuda`, `nbody_2d/Makefile`, `nbody_2d/scripts/generate_plots.py`, `nbody_2d/tests/`       | Pipeline CI en contenedor (compilación `nvcc` + `make test`), Dockerfiles (gate CPU y smoke GPU), ejecución manual de benchmarks en clúster DIINF vía Slurm, script de figuras `performance_plots.png`, suite de tests Catch2 y targets del Makefile.                                                                                                                                                      |
+| **Sebastián Cassone** | Rol 5: Calidad, CI y Visualización | `.github/workflows/ci.yml`, `build_base_container.yml`, `nbody_2d/Dockerfile`, `nbody_2d/Dockerfile.cuda`, `nbody_2d/Makefile`, `nbody_2d/scripts/generate_plots.py`, `nbody_2d/tests/`                           | Pipeline CI en contenedor (compilación `nvcc` + `make test`), Dockerfiles, ejecución manual de benchmarks en clúster DIINF vía Slurm, script de figuras `performance_plots.png`, suite de tests Catch2 y targets del Makefile.                                                                                                                                                                             |
 
 ---
 
@@ -79,7 +79,7 @@ docker run --rm nbody_cuda make test
 > docker run --rm -v "$(pwd):/workspace" -w /workspace nbody_cuda make test
 > ```
 >
-> La suite `make test` corre en CPU y no requiere GPU. Para pasar una GPU al contenedor se necesita además host NVIDIA + driver CUDA 12.x + `nvidia-container-toolkit` (y la bandera `--gpus all`). Existe una imagen separada, [`nbody_2d/Dockerfile.cuda`](nbody_2d/Dockerfile.cuda), para el smoke test GPU opcional (workflow `gpu_optional.yml`), manteniendo liviano el gate CPU principal.
+> La suite `make test` corre en CPU y no requiere GPU. Para pasar una GPU al contenedor se necesita además host NVIDIA + driver CUDA 12.x + `nvidia-container-toolkit` (y la bandera `--gpus all`). Existe una imagen separada, [`nbody_2d/Dockerfile.cuda`](nbody_2d/Dockerfile.cuda), utilizada para pruebas locales opcionales con CUDA.
 
 ---
 
@@ -227,14 +227,13 @@ Disparadores: `push` y `pull_request` hacia `main`. Ejecuta en `ubuntu-latest` d
 
 ### 7.2 Desacople explícito de GPU en CI
 
-Los runners hospedados de GitHub **no tienen GPU NVIDIA**. Por diseño: la CI **compila todo el código CUDA con `nvcc`** (garantizando que kernels, wrappers y enlazado `-lcudart` no se rompan) y **ejecuta `make test` para la validación CPU/lógica** (física de referencia, integrador, métricas, tolerancias CPU). La validación **CPU vs GPU** (modo 2) y los **benchmarks de rendimiento GPU** (modo 3) se realizan de manera dedicada en el **clúster DIINF** (Sección 6), mediante **ejecución manual en Slurm**. El workflow `gpu_optional.yml` (manual, self-hosted) ofrece un _smoke test_ GPU no bloqueante: verifica `nvcc --version` + `nvidia-smi` y corre `make test` dentro de `Dockerfile.cuda`.
+Los runners hospedados de GitHub **no tienen GPU NVIDIA**. Por diseño: la CI **compila todo el código CUDA con `nvcc`** (garantizando que kernels, wrappers y enlazado `-lcudart` no se rompan) y **ejecuta `make test` para la validación CPU/lógica** (física de referencia, integrador, métricas, tolerancias CPU). La validación **CPU vs GPU** (modo 2) y los **benchmarks de rendimiento GPU** (modo 3) se realizan de manera dedicada en el **clúster DIINF** (Sección 6), mediante **ejecución manual en Slurm**.
 
 ### 7.3 Workflows del repositorio (`.github/workflows/`)
 
 | Workflow                   | Disparador                             | Propósito                                                     |
 | :------------------------- | :------------------------------------- | :------------------------------------------------------------ |
 | `ci.yml`                   | push / PR a `main`                     | Gate obligatorio: compilación nvcc + tests CPU en contenedor. |
-| `gpu_optional.yml`         | manual                                 | Smoke GPU opcional (no bloquea merges).                       |
 | `build_base_container.yml` | push/PR que toca `nbody_2d/Dockerfile` | Build/push de la imagen base a GHCR + smoke-compile.          |
 | `release_tag.yml`          | manual                                 | Crea tag anotado `v2.0.0-lab2` + GitHub Release.              |
 | `agent_documenter.yml`     | cron semanal / push a `main` / manual  | Agente documentador (Sección 5).                              |
