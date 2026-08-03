@@ -9,7 +9,7 @@ permissions:
 jobs:
   gpu-smoke:
     name: Optional GPU smoke run
-    runs-on: self-hosted
+    runs-on: ubuntu
 
     steps:
       - name: Checkout del repositorio
