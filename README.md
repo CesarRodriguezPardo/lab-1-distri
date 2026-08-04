@@ -223,8 +223,8 @@ Disparadores: `push` y `pull_request` hacia `main`. Ejecuta en `ubuntu-latest` d
 3. **`make test`** en el contenedor (repo montado en `/workspace`): compila con `nvcc` la suite Catch2 completa (incluye los `.cu`) y la ejecuta.
 4. **`make all`**: compila el binario principal `nbody`.
 5. **`make benchmark-bin`**: compila el binario de benchmarks.
-6. **`make benchmark`**: ejecuta benchmarks CPU y genera archivos `.dat` de baseline.
-7. **Artefactos**: sube `test_runner`, `benchmark` y los `.dat` de benchmark CPU (`if: always()`, retención 7 días).
+6. **`make benchmark`**: ejecuta benchmarks CPU y genera `.dat` (baseline CPU + plan/placeholder GPU).
+7. **Artefactos**: sube `test_runner`, `benchmark` y los `.dat` generados (`scaling_parallel.dat`, `scaling_tasks.dat`, `chunk_schedule.dat`, `full_simulation_cpu.dat`, `gpu_benchmark_plan.dat`, `gpu_kernel_only.dat`, `gpu_end_to_end.dat`, `cpu_vs_gpu.dat`) (`if: always()`, retención 7 días).
 
 ### 7.2 Desacople explícito de GPU en CI
 
