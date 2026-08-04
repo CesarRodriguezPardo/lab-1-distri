@@ -51,8 +51,8 @@ Targets disponibles (ejecutar dentro de `nbody_2d/`):
 | :----------------------- | :-------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- |
 | `make` / `make all`      | Compila el binario interactivo principal **`nbody`** (`main.cpp` + fuentes + kernels).                                                                                                                    |
 | `make test`              | Compila **`test_runner`** (suite Catch2 v3: `test_Particle`, `test_NBodySystem`, `test_Integrator`, `test_MetricsCalculator`) **y la ejecuta**; exit code ≠ 0 si algún test falla. Corre en CPU, sin GPU. |
-| `make benchmark-bin`     | Compila el binario **`benchmark`** (benchmarks CPU) sin ejecutarlo (usado en CI).                                                                                                                         |
-| `make benchmark`         | Compila y ejecuta `./benchmark` → genera los `.dat` de escalamiento CPU (`scaling_parallel.dat`, `chunk_schedule.dat`, etc.).                                                                             |
+| `make benchmark-bin`     | Compila el binario **`benchmark`** (benchmarks CPU) sin ejecutarlo.                                                                                                                                       |
+| `make benchmark`         | Compila y ejecuta `./benchmark` → genera los `.dat` de escalamiento CPU (`scaling_parallel.dat`, `chunk_schedule.dat`, etc.). Este target también se ejecuta en CI.                                       |
 | `make analysis`          | Ejecuta `./nbody` → genera `energy_<modo>.dat` y `trajectories_<modo>.dat`.                                                                                                                               |
 | `make plot`              | Genera los PNG legados del Lab 1 con gnuplot.                                                                                                                                                             |
 | `make performance-plots` | Ejecuta `python3 scripts/generate_plots.py` → **`performance_plots.png`** (figuras Lab 2).                                                                                                                |
@@ -222,23 +222,24 @@ Disparadores: `push` y `pull_request` hacia `main`. Ejecuta en `ubuntu-latest` d
 2. **Build de la imagen**: `docker build -t nbody-2d-ci -f nbody_2d/Dockerfile nbody_2d` (base `nvidia/cuda:12.4.1-devel-ubuntu22.04`).
 3. **`make test`** en el contenedor (repo montado en `/workspace`): compila con `nvcc` la suite Catch2 completa (incluye los `.cu`) y la ejecuta.
 4. **`make all`**: compila el binario principal `nbody`.
-5. **`make benchmark-bin`**: compila (sin ejecutar) el binario de benchmarks, detectando roturas en la ruta GPU/benchmark.
-6. **Artefactos**: sube `test_runner` y `benchmark` (`if: always()`, retención 7 días).
+5. **`make benchmark-bin`**: compila el binario de benchmarks.
+6. **`make benchmark`**: ejecuta benchmarks CPU y genera `.dat` (baseline CPU + plan/placeholder GPU).
+7. **Artefactos**: sube `test_runner`, `benchmark` y los `.dat` generados (`scaling_parallel.dat`, `scaling_tasks.dat`, `chunk_schedule.dat`, `full_simulation_cpu.dat`, `gpu_benchmark_plan.dat`, `gpu_kernel_only.dat`, `gpu_end_to_end.dat`, `cpu_vs_gpu.dat`) (`if: always()`, retención 7 días).
 
 ### 7.2 Desacople explícito de GPU en CI
 
-Los runners hospedados de GitHub **no tienen GPU NVIDIA**. Por diseño: la CI **compila todo el código CUDA con `nvcc`** (garantizando que kernels, wrappers y enlazado `-lcudart` no se rompan) y **ejecuta `make test` para la validación CPU/lógica** (física de referencia, integrador, métricas, tolerancias CPU). La validación **CPU vs GPU** (modo 2) y los **benchmarks de rendimiento GPU** (modo 3) se realizan de manera dedicada en el **clúster DIINF** (Sección 6), mediante **ejecución manual en Slurm**.
+Los runners hospedados de GitHub **no tienen GPU NVIDIA**. Por diseño: la CI **compila todo el código CUDA con `nvcc`** (garantizando que kernels, wrappers y enlazado `-lcudart` no se rompan), **ejecuta `make test` para la validación CPU/lógica** (física de referencia, integrador, métricas, tolerancias CPU) y **ejecuta benchmarks CPU** como baseline reproducible. La validación **CPU vs GPU** (modo 2) y los **benchmarks de rendimiento GPU** (modo 3) se realizan de manera dedicada en el **clúster DIINF** (Sección 6), mediante **ejecución manual en Slurm**.
 
 ### 7.3 Workflows del repositorio (`.github/workflows/`)
 
-| Workflow                   | Disparador                             | Propósito                                                     |
-| :------------------------- | :------------------------------------- | :------------------------------------------------------------ |
-| `ci.yml`                   | push / PR a `main`                     | Gate obligatorio: compilación nvcc + tests CPU en contenedor. |
-| `build_base_container.yml` | push/PR que toca `nbody_2d/Dockerfile` | Build/push de la imagen base a GHCR + smoke-compile.          |
-| `release_tag.yml`          | manual                                 | Crea tag anotado `v2.0.0-lab2` + GitHub Release.              |
-| `agent_documenter.yml`     | cron semanal / push a `main` / manual  | Agente documentador (Sección 5).                              |
-| `agent_bug_reviewer.yml`   | cron diario / manual                   | Agente revisor de bugs CUDA (Sección 5).                      |
-| `agent_mr_reviewer.yml`    | `workflow_run` post-CI / manual        | Agente revisor de MRs (Sección 5).                            |
+| Workflow                   | Disparador                             | Propósito                                                                      |
+| :------------------------- | :------------------------------------- | :----------------------------------------------------------------------------- |
+| `ci.yml`                   | push / PR a `main`                     | Gate obligatorio: compilación nvcc + tests CPU + benchmarks CPU en contenedor. |
+| `build_base_container.yml` | push/PR que toca `nbody_2d/Dockerfile` | Build/push de la imagen base a GHCR + smoke-compile.                           |
+| `release_tag.yml`          | manual                                 | Crea tag anotado `v2.0.0-lab2` + GitHub Release.                               |
+| `agent_documenter.yml`     | cron semanal / push a `main` / manual  | Agente documentador (Sección 5).                                               |
+| `agent_bug_reviewer.yml`   | cron diario / manual                   | Agente revisor de bugs CUDA (Sección 5).                                       |
+| `agent_mr_reviewer.yml`    | `workflow_run` post-CI / manual        | Agente revisor de MRs (Sección 5).                                             |
 
 ---
 
